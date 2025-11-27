@@ -1,0 +1,76 @@
+"""Block model with lazy loading."""
+
+from functools import cached_property
+
+from sentinel.v1.dto import ExtrinsicDTO, HyperparametersDTO
+from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.services.extractors.extrinsics import ExtrinsicExtractor
+from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
+
+
+class Block:
+    """
+    Lazy-loading block model that extracts data on-demand.
+
+    Data is extracted only when accessed via properties, implementing
+    the lazy loading pattern to avoid unnecessary computation.
+    """
+
+    def __init__(self, provider: BittensorProvider, block_number: int) -> None:
+        """
+        Initialize a Block instance.
+
+        Args:
+            provider: The blockchain provider to use for data retrieval
+            block_number: The blockchain block number to process
+
+        """
+        self.provider = provider
+        self.block_number = block_number
+
+    def extrinsics(self) -> list[ExtrinsicDTO]:
+        """
+        Retrieve extrinsics for this block.
+
+        Returns:
+            List of ExtrinsicDTO containing the block's extrinsics
+
+        """
+        extractor = ExtrinsicExtractor(self.provider, self.block_number)
+        return extractor.extract()
+
+    def transactions(self) -> list[dict]:
+        """
+        Retrieve transactions for this block.
+
+        Returns:
+            List of transactions in the block
+
+        """
+        msg = "Transaction extraction not yet implemented"
+        raise NotImplementedError(msg)
+
+    def metagraph(self) -> dict:
+        """
+        Retrieve metagraph for this block.
+
+        Returns:
+            Metagraph data for the block
+
+        """
+        msg = "Metagraph extraction not yet implemented"
+        raise NotImplementedError(msg)
+
+    @cached_property
+    def hyperparameters(self) -> HyperparametersDTO:
+        """
+        Lazily extract and return hyperparameters for this block.
+
+        The extraction only happens on first access, then cached.
+
+        Returns:
+            HyperparametersDTO containing the block's hyperparameters
+
+        """
+        extractor = HyperparamExtractor(self.provider, self.block_number, self.netid)
+        return extractor.extract()
