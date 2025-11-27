@@ -28,18 +28,27 @@ if CI:
     PYTHON_VERSIONS = [sys.executable]
 
 
-def install(session: nox.Session, *groups, dev: bool = True, editable: bool = False, no_self=False, no_default=False):
+def install(
+    session: nox.Session,
+    *groups,
+    dev: bool = True,
+    editable: bool = False,
+    no_install_project: bool = False,
+    only_group: bool = False,
+):
     other_args = []
     if not dev:
-        other_args.append("--prod")
+        other_args.append("--no-dev")
     if not editable:
         other_args.append("--no-editable")
-    if no_self:
-        other_args.append("--no-self")
-    if no_default:
-        other_args.append("--no-default")
-    for group in groups:
-        other_args.extend(["--group", group])
+    if no_install_project:
+        other_args.append("--no-install-project")
+    if only_group:
+        other_args.append("--only-group")
+        other_args.extend(groups)
+    else:
+        for group in groups:
+            other_args.extend(["--group", group])
     session.run("uv", "sync", "--active", *other_args, external=True)
 
 
@@ -128,7 +137,7 @@ def run_shellcheck(session, mode="check"):
 @nox.session(name="format", python=PYTHON_DEFAULT_VERSION, tags=["format", "check"])
 def format_(session):
     """Lint the code and apply fixes in-place whenever possible."""
-    install(session, "lint", no_self=True, no_default=True)
+    install(session, "lint", no_install_project=True, only_group=True)
     session.run("ruff", "check", "--fix", ".")
     run_shellcheck(session, mode="fmt")
     run_readable(session, mode="fmt")
@@ -156,7 +165,7 @@ def test(session):
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
 def make_release(session):
-    install(session, "release", no_self=True, no_default=True)
+    install(session, "release", no_install_project=True, only_group=True)
     parser = argparse.ArgumentParser()
 
     def version(value):
