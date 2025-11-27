@@ -139,9 +139,12 @@ showcontent = true
 
 [[tool.mypy.overrides]]
 module = [
+    "boto3",
     "nox",
     "pytest",
     "tests.*",
+    "turbobt",
+    "turbobt.*",
     "typer",
 ]
 ignore_missing_imports = true

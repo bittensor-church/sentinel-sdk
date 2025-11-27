@@ -74,6 +74,9 @@ class BittensorProvider:
         return self.client.get_extrinsics(block_hash=block_hash)
 
 
+DEFAULT_NETWORK_URI = "wss://entrypoint-finney.opentensor.ai:443"
+
+
 def bittensor_provider(network_uri: str | None = None) -> BittensorProvider:
     """
     Factory function to create a BittensorProvider instance.
@@ -86,6 +89,6 @@ def bittensor_provider(network_uri: str | None = None) -> BittensorProvider:
         BittensorProvider instance
 
     """
-    uri = network_uri or os.getenv("BITTENSOR_NETWORK", "wss://entrypoint-finney.opentensor.ai:443")
+    uri = network_uri or os.getenv("BITTENSOR_NETWORK") or DEFAULT_NETWORK_URI
     instance = BittensorClient(uri)
     return BittensorProvider(instance)

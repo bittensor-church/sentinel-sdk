@@ -120,16 +120,21 @@ def info(
     """Display information about a block."""
     provider = bittensor_provider(network_uri=network)
 
+    resolved_block: int
     if block_number is None:
         current = provider.get_current_block()
-        block_number = current.number
-        typer.echo(f"Current block: {block_number}")
+        if current.number is None:
+            typer.echo("Error: Could not determine current block number", err=True)
+            raise typer.Exit(1)
+        resolved_block = current.number
+        typer.echo(f"Current block: {resolved_block}")
         return
 
-    typer.echo(f"Block: {block_number}")
-    block_hash = provider.get_hash_by_block_number(block_number)
+    resolved_block = block_number
+    typer.echo(f"Block: {resolved_block}")
+    block_hash = provider.get_hash_by_block_number(resolved_block)
     if not block_hash:
-        typer.echo(f"Error: Block hash not found for block {block_number}", err=True)
+        typer.echo(f"Error: Block hash not found for block {resolved_block}", err=True)
         raise typer.Exit(1)
 
     typer.echo(f"Hash: {block_hash}")
@@ -154,16 +159,22 @@ def hyperparams(
     provider = bittensor_provider(network_uri=network)
     service = sentinel_service(provider)
 
+    resolved_block: int
     if block_number is None:
         current = provider.get_current_block()
-        block_number = current.number
-        typer.echo(f"Using current block: {block_number}")
+        if current.number is None:
+            typer.echo("Error: Could not determine current block number", err=True)
+            raise typer.Exit(1)
+        resolved_block = current.number
+        typer.echo(f"Using current block: {resolved_block}")
+    else:
+        resolved_block = block_number
 
-    block = service.ingest_block(block_number, netuid)
-    hyperparameters = block.hyperparameters
+    block = service.ingest_block(resolved_block, netuid)
+    hyperparameters_data = block.hyperparameters
 
-    typer.echo(f"\nHyperparameters for subnet {netuid} at block {block_number}:")
+    typer.echo(f"\nHyperparameters for subnet {netuid} at block {resolved_block}:")
     typer.echo("-" * 50)
 
-    for field, value in hyperparameters.model_dump().items():
+    for field, value in hyperparameters_data.model_dump().items():
         typer.echo(f"{field}: {value}")

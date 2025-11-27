@@ -17,7 +17,7 @@ class SentinelService:
         """
         self.provider = provider
 
-    def ingest_block(self, block_number: int) -> Block:
+    def ingest_block(self, block_number: int, netuid: int | None = None) -> Block:
         """
         Ingest a block and return a lazy-loaded Block instance.
 
@@ -26,12 +26,13 @@ class SentinelService:
 
         Args:
             block_number: The blockchain block number to ingest
+            netuid: Optional subnet ID for hyperparameter queries
 
         Returns:
             Block instance with lazy-loaded properties
 
         """
-        return Block(self.provider, block_number)
+        return Block(self.provider, block_number, netuid)
 
 
 def sentinel_service(provider: BittensorProvider) -> SentinelService:

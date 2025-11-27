@@ -16,17 +16,19 @@ class Block:
     the lazy loading pattern to avoid unnecessary computation.
     """
 
-    def __init__(self, provider: BittensorProvider, block_number: int) -> None:
+    def __init__(self, provider: BittensorProvider, block_number: int, netuid: int | None = None) -> None:
         """
         Initialize a Block instance.
 
         Args:
             provider: The blockchain provider to use for data retrieval
             block_number: The blockchain block number to process
+            netuid: Optional subnet ID for hyperparameter queries
 
         """
         self.provider = provider
         self.block_number = block_number
+        self.netuid = netuid
 
     def extrinsics(self) -> list[ExtrinsicDTO]:
         """
@@ -67,10 +69,17 @@ class Block:
         Lazily extract and return hyperparameters for this block.
 
         The extraction only happens on first access, then cached.
+        Requires netuid to be set during Block initialization.
 
         Returns:
             HyperparametersDTO containing the block's hyperparameters
 
+        Raises:
+            ValueError: If netuid was not provided during initialization
+
         """
-        extractor = HyperparamExtractor(self.provider, self.block_number, self.netid)
+        if self.netuid is None:
+            msg = "netuid must be provided to access hyperparameters"
+            raise ValueError(msg)
+        extractor = HyperparamExtractor(self.provider, self.block_number, self.netuid)
         return extractor.extract()

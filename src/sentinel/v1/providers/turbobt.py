@@ -58,7 +58,7 @@ class BittensorClient:
                 if not signed_block:
                     return None
 
-                return signed_block['block']['extrinsics']
+                return signed_block["block"]["extrinsics"]
         except Exception:
             logger.exception("Failed to fetch extrinsics")
         return None
