@@ -7,6 +7,13 @@
 > This package uses [ApiVer](#versioning), make sure to import `sentinel.v1`.
 
 
+## Installation
+
+```bash
+pip install bittensor-sentinel
+```
+
+
 ## Versioning
 
 This package uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
