@@ -22,6 +22,7 @@ dependencies = [
     "asgiref>=3.11.0",
     "pydantic>=2.12.5",
     "structlog>=25.5.0",
+    "substrate-interface>=1.7.0",
     "turbobt>=0.3.0",
     "typer>=0.12.0",
 ]
@@ -44,6 +45,9 @@ fallback-version = "0.0.0"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/sentinel/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sentinel", "src/sentinel_cli"]
 
 [dependency-groups]
 test = [
@@ -142,6 +146,8 @@ module = [
     "boto3",
     "nox",
     "pytest",
+    "substrateinterface",
+    "substrateinterface.*",
     "tests.*",
     "turbobt",
     "turbobt.*",

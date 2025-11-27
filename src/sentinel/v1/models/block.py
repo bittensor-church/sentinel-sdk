@@ -2,8 +2,9 @@
 
 from functools import cached_property
 
-from sentinel.v1.dto import ExtrinsicDTO, HyperparametersDTO
+from sentinel.v1.dto import EventDTO, ExtrinsicDTO, HyperparametersDTO
 from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.services.extractors.events.extractor import EventsExtractor
 from sentinel.v1.services.extractors.extrinsics import ExtrinsicExtractor
 from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
 
@@ -30,6 +31,7 @@ class Block:
         self.block_number = block_number
         self.netuid = netuid
 
+    @cached_property
     def extrinsics(self) -> list[ExtrinsicDTO]:
         """
         Retrieve extrinsics for this block.
@@ -51,6 +53,18 @@ class Block:
         """
         msg = "Transaction extraction not yet implemented"
         raise NotImplementedError(msg)
+
+    @cached_property
+    def events(self) -> list[EventDTO]:
+        """
+        Retrieve events for this block.
+
+        Returns:
+            List of EventDTO containing the block's events
+
+        """
+        extractor = EventsExtractor(self.provider, self.block_number)
+        return extractor.extract()
 
     def metagraph(self) -> dict:
         """

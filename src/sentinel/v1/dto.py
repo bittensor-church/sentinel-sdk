@@ -78,3 +78,29 @@ class ExtrinsicDTO(BaseModel):
     nonce: int | None = None
     tip: int | None = None
     mode: dict | None = None
+
+
+class EventDataDTO(BaseModel):
+    """Data transfer object for nested event data."""
+
+    model_config = ConfigDict(frozen=True)
+
+    event_index: str
+    module_id: str
+    event_id: str
+    attributes: dict | tuple | list | None = None
+
+
+class EventDTO(BaseModel):
+    """Data transfer object for blockchain events."""
+
+    model_config = ConfigDict(frozen=True)
+
+    phase: str | dict
+    extrinsic_idx: int | None
+    event: EventDataDTO
+    event_index: int
+    module_id: str
+    event_id: str
+    attributes: dict | tuple | list | None = None
+    topics: list
