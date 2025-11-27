@@ -67,6 +67,64 @@ wheels = [
 ]
 
 [[package]]
+name = "bittensor-sentinel"
+source = { editable = "." }
+dependencies = [
+    { name = "asgiref" },
+    { name = "pydantic" },
+    { name = "structlog" },
+    { name = "turbobt" },
+    { name = "typer" },
+]
+
+[package.dev-dependencies]
+lint = [
+    { name = "codespell" },
+    { name = "mypy" },
+    { name = "ruff" },
+    { name = "types-freezegun" },
+    { name = "types-python-dateutil" },
+    { name = "types-requests" },
+]
+release = [
+    { name = "towncrier" },
+]
+test = [
+    { name = "freezegun" },
+    { name = "pytest" },
+    { name = "pytest-apiver" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-xdist" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asgiref", specifier = ">=3.11.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "structlog", specifier = ">=25.5.0" },
+    { name = "turbobt", specifier = ">=0.3.0" },
+    { name = "typer", specifier = ">=0.12.0" },
+]
+
+[package.metadata.requires-dev]
+lint = [
+    { name = "codespell", extras = ["toml"] },
+    { name = "mypy", specifier = ">=1.8" },
+    { name = "ruff" },
+    { name = "types-freezegun" },
+    { name = "types-python-dateutil" },
+    { name = "types-requests" },
+]
+release = [{ name = "towncrier" }]
+test = [
+    { name = "freezegun" },
+    { name = "pytest" },
+    { name = "pytest-apiver" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-xdist" },
+]
+
+[[package]]
 name = "bittensor-wallet"
 version = "4.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -808,64 +866,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b8/3c/4c3e3fa0efd75eb1e00b9bd6ccce8e0018e0789bff35d76cc9ce554354d0/scalecodec-1.2.12.tar.gz", hash = "sha256:aa54cc901970289fe64ae01edf076f25f60f8d7e4682979b827cab73dde74393", size = 150568, upload-time = "2025-10-16T14:01:55.231Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/e0/a080f62ccb71ace2330081badae678d2f5349078388459a60af927814695/scalecodec-1.2.12-py3-none-any.whl", hash = "sha256:b9de1a2d3d98b9e4285804478d8f5f13b3787ebc4d05625eb0054add7feebe45", size = 99164, upload-time = "2025-10-16T14:01:53.517Z" },
-]
-
-[[package]]
-name = "sentinel"
-source = { editable = "." }
-dependencies = [
-    { name = "asgiref" },
-    { name = "pydantic" },
-    { name = "structlog" },
-    { name = "turbobt" },
-    { name = "typer" },
-]
-
-[package.dev-dependencies]
-lint = [
-    { name = "codespell" },
-    { name = "mypy" },
-    { name = "ruff" },
-    { name = "types-freezegun" },
-    { name = "types-python-dateutil" },
-    { name = "types-requests" },
-]
-release = [
-    { name = "towncrier" },
-]
-test = [
-    { name = "freezegun" },
-    { name = "pytest" },
-    { name = "pytest-apiver" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-xdist" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "asgiref", specifier = ">=3.11.0" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "structlog", specifier = ">=25.5.0" },
-    { name = "turbobt", specifier = ">=0.3.0" },
-    { name = "typer", specifier = ">=0.12.0" },
-]
-
-[package.metadata.requires-dev]
-lint = [
-    { name = "codespell", extras = ["toml"] },
-    { name = "mypy", specifier = ">=1.8" },
-    { name = "ruff" },
-    { name = "types-freezegun" },
-    { name = "types-python-dateutil" },
-    { name = "types-requests" },
-]
-release = [{ name = "towncrier" }]
-test = [
-    { name = "freezegun" },
-    { name = "pytest" },
-    { name = "pytest-apiver" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-xdist" },
 ]
 
 [[package]]
