@@ -1,0 +1,20 @@
+{
+  "template": "https://github.com/reef-technologies/cookiecutter-rt-pkg",
+  "commit": "985688f5137b0211b92f860bdd055cb6e563585c",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "package_name": "sentinel",
+      "repository_github_url": "https://github.com/bittensor-church/sentinel",
+      "is_django_package": "n",
+      "build_docker_image": "n",
+      "_jinja2_env_vars": {
+        "block_start_string": "# COOKIECUTTER{%",
+        "block_end_string": "%}"
+      },
+      "_template": "https://github.com/reef-technologies/cookiecutter-rt-pkg",
+      "_commit": "985688f5137b0211b92f860bdd055cb6e563585c"
+    }
+  },
+  "directory": null
+}
