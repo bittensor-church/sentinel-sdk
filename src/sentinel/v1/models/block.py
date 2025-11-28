@@ -34,14 +34,24 @@ class Block:
     @cached_property
     def extrinsics(self) -> list[ExtrinsicDTO]:
         """
-        Retrieve extrinsics for this block.
+        Retrieve extrinsics for this block with associated events.
 
         Returns:
             List of ExtrinsicDTO containing the block's extrinsics
 
         """
         extractor = ExtrinsicExtractor(self.provider, self.block_number)
-        return extractor.extract()
+        raw_extrinsics = extractor.extract()
+
+        # Attach events to extrinsics
+        events = self.events
+        if not events:
+            return raw_extrinsics
+
+        return [
+            ext.model_copy(update={"events": [e for e in events if e.extrinsic_idx == idx]})
+            for idx, ext in enumerate(raw_extrinsics)
+        ]
 
     def transactions(self) -> list[dict]:
         """

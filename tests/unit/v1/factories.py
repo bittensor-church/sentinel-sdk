@@ -1,7 +1,10 @@
+import random
+
 from polyfactory import Use
 from polyfactory.factories.pydantic_factory import ModelFactory
 
 import sentinel.v1.dto as sentinel_dto
+from sentinel.v1.services.extractors.extrinsics.filters import HYPERPARAM_FUNCTIONS
 
 
 class HyperparametersDTOFactory(ModelFactory[sentinel_dto.HyperparametersDTO]): ...
@@ -29,12 +32,11 @@ class HyperparamCallDTOFactory(ModelFactory[sentinel_dto.CallDTO]):
     """Factory for creating hyperparameter-setting call DTOs."""
 
     call_module = "AdminUtils"
-    call_function = "sudo_set_tempo"
+    call_function = Use(lambda: random.choice(list(HYPERPARAM_FUNCTIONS)))
     call_args = Use(
         lambda: [
             sentinel_dto.CallArgDTO(name="netuid", type="u16", value=1),
-            sentinel_dto.CallArgDTO(name="tempo", type="u16", value=360),
-        ]
+        ],
     )
 
 

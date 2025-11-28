@@ -6,6 +6,47 @@
 > [!IMPORTANT]
 > This package uses [ApiVer](#versioning), make sure to import `sentinel.v1`.
 
+### As a library
+
+```python
+from sentinel.v1.providers.bittensor import bittensor_provider
+from sentinel.v1.services.extractors.extrinsics import get_hyperparam_extrinsics
+from sentinel.v1.services.sentinel import sentinel_service
+
+provider = bittensor_provider()
+service = sentinel_service(provider)
+for extrinsic in extrinsics:
+    print(extrinsic)
+```
+
+### CLI
+
+```
+$ sentinel --help
+
+
+Usage: sentinel [OPTIONS] COMMAND [ARGS]...
+
+Sentinel CLI - Blockchain data extraction and monitoring tool.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --format              -f      [table|json]  Output format. [default: table]  │
+│ --install-completion                        Install completion for the       │
+│                                             current shell.                   │
+│ --show-completion                           Show completion for the current  │
+│                                             shell, to copy it or customize   │
+│                                             the installation.                │
+│ --help                                      Show this message and exit.      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ extrinsics    Read extrinsics from a blockchain block.                       │
+│ events        Read events from a blockchain block.                           │
+│ hyperparams   Read hyperparameters for a subnet at a specific block.         │
+│ block         Block-related commands.                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+
 
 ## Installation
 

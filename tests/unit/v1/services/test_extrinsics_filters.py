@@ -1,4 +1,5 @@
 from sentinel.v1.services.extractors.extrinsics.extractor import ExtrinsicExtractor
+from sentinel.v1.services.extractors.extrinsics.filters import filter_hyperparam_extrinsics
 from tests.unit.v1.factories import HyperparamExtrinsicDTOFactory
 from tests.unit.v1.providers import FakeBittensorProvider
 
@@ -61,3 +62,20 @@ def test_extrinsics_filter_hyperparam_only(fake_provider: FakeBittensorProvider)
 
     assert len(hyperparam_extrinsics) == 1
     assert hyperparam_extrinsics[0].call.call_function == "sudo_set_rho"
+
+
+def test_extrinsics_filter(fake_provider: FakeBittensorProvider, extrinsics_response):
+    block_number = 300
+    block_hash = "0xghi789"
+
+    fake_provider.with_block(block_number, block_hash).with_extrinsics(
+        block_hash,
+        extrinsics_response,
+    )
+
+    extractor = ExtrinsicExtractor(fake_provider, block_number=block_number)
+    extractor_output = extractor.extract()
+
+    hyperparam_extrinsics = filter_hyperparam_extrinsics(extractor_output)
+
+    assert len(hyperparam_extrinsics) == 2

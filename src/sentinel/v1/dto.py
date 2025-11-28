@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 
 class HyperparametersDTO(BaseModel):
@@ -64,6 +64,32 @@ class CallDTO(BaseModel):
     call_hash: str
 
 
+class EventDataDTO(BaseModel):
+    """Data transfer object for nested event data."""
+
+    model_config = ConfigDict(frozen=True)
+
+    event_index: str
+    module_id: str
+    event_id: str
+    attributes: dict | tuple | list | str | None = None
+
+
+class EventDTO(BaseModel):
+    """Data transfer object for blockchain events."""
+
+    model_config = ConfigDict(frozen=True)
+
+    phase: str | dict
+    extrinsic_idx: int | None
+    event: EventDataDTO
+    event_index: int
+    module_id: str
+    event_id: str
+    attributes: dict | tuple | list | str | None = None
+    topics: list
+
+
 class ExtrinsicDTO(BaseModel):
     """Data transfer object for blockchain extrinsics."""
 
@@ -78,29 +104,17 @@ class ExtrinsicDTO(BaseModel):
     nonce: int | None = None
     tip: int | None = None
     mode: dict | None = None
+    events: list[EventDTO] | None = None
 
-
-class EventDataDTO(BaseModel):
-    """Data transfer object for nested event data."""
-
-    model_config = ConfigDict(frozen=True)
-
-    event_index: str
-    module_id: str
-    event_id: str
-    attributes: dict | tuple | list | None = None
-
-
-class EventDTO(BaseModel):
-    """Data transfer object for blockchain events."""
-
-    model_config = ConfigDict(frozen=True)
-
-    phase: str | dict
-    extrinsic_idx: int | None
-    event: EventDataDTO
-    event_index: int
-    module_id: str
-    event_id: str
-    attributes: dict | tuple | list | None = None
-    topics: list
+    @computed_field
+    @property
+    def status(self) -> str | None:
+        """Get extrinsic status from the last event."""
+        if not self.events:
+            return None
+        last_event = self.events[-1]
+        if last_event.module_id == "System" and last_event.event_id == "ExtrinsicSuccess":
+            return "success"
+        if last_event.module_id == "System" and last_event.event_id == "ExtrinsicFailed":
+            return "failed"
+        return None
