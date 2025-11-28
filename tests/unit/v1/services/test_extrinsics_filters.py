@@ -57,9 +57,7 @@ def test_extrinsics_filter_hyperparam_only(fake_provider: FakeBittensorProvider)
     extractor_output = extractor.extract()
 
     # Filter only hyperparameter-related extrinsics
-    hyperparam_extrinsics = [
-        ext for ext in extractor_output if ext.call.call_function.startswith("sudo_set_")
-    ]
+    hyperparam_extrinsics = [ext for ext in extractor_output if ext.call.call_function.startswith("sudo_set_")]
 
     assert len(hyperparam_extrinsics) == 1
     assert hyperparam_extrinsics[0].call.call_function == "sudo_set_rho"
