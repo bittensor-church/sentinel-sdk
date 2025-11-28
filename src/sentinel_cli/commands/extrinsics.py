@@ -49,10 +49,7 @@ def _build_events_table(ext: ExtrinsicDTO) -> Table | None:
     if not ext.events:
         return None
     return build_key_value_table(
-        (
-            (f"{e.module_id}.{e.event_id}", truncate(str(e.attributes or ""), MAX_ATTR_LENGTH))
-            for e in ext.events
-        ),
+        ((f"{e.module_id}.{e.event_id}", truncate(str(e.attributes or ""), MAX_ATTR_LENGTH)) for e in ext.events),
         key_header="Event",
         value_header="Attributes",
         max_value_length=MAX_ATTR_LENGTH,
@@ -133,15 +130,16 @@ def _output_json_format(
     extrinsics_list: list[ExtrinsicDTO],
 ) -> None:
     """Output extrinsics as JSON."""
-    output_json({
-        "block_number": block_number,
-        "block_hash": block_hash,
-        "count": len(extrinsics_list),
-        "extrinsics": [
-            {"id": format_block_id(block_number, i), **ext.model_dump()}
-            for i, ext in enumerate(extrinsics_list)
-        ],
-    })
+    output_json(
+        {
+            "block_number": block_number,
+            "block_hash": block_hash,
+            "count": len(extrinsics_list),
+            "extrinsics": [
+                {"id": format_block_id(block_number, i), **ext.model_dump()} for i, ext in enumerate(extrinsics_list)
+            ],
+        }
+    )
 
 
 # --- Command ---
