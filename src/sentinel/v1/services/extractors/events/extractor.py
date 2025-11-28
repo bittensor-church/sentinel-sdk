@@ -1,5 +1,5 @@
 from sentinel.v1.dto import EventDTO
-from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.providers import BlockchainProvider
 
 
 class EventsExtractor:
@@ -7,7 +7,7 @@ class EventsExtractor:
 
     def __init__(
         self,
-        provider: BittensorProvider,
+        provider: BlockchainProvider,
         block_number: int,
     ) -> None:
         self.provider = provider
@@ -20,5 +20,5 @@ class EventsExtractor:
             msg = f"Block hash not found for block number {self.block_number}"
             raise ValueError(msg)
 
-        raw_events = self.provider.get_events(block_hash)
-        return [EventDTO.model_validate(event.serialize()) for event in raw_events]
+        events = self.provider.get_events(block_hash)
+        return [EventDTO.model_validate(event) for event in events]

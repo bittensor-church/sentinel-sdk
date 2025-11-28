@@ -9,6 +9,7 @@ from turbobt.block import Block
 from turbobt.subnet import SubnetHyperparams
 from turbobt.substrate.pallets.chain import Extrinsic
 
+from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.providers.substrate import SubstrateProvider
 
 logger = structlog.get_logger()
@@ -17,7 +18,7 @@ DEFAULT_NETWORK_URI = "wss://entrypoint-finney.opentensor.ai:443"
 BITTENSOR_SS58_FORMAT = 42
 
 
-class BittensorProvider:
+class BittensorProvider(BlockchainProvider):
     """Provider for interacting with the Bittensor blockchain."""
 
     def __init__(self, uri: str) -> None:
@@ -124,18 +125,19 @@ class BittensorProvider:
             logger.exception("Failed to fetch extrinsics", block_hash=block_hash)
             return None
 
-    def get_events(self, block_hash: str) -> list:
+    def get_events(self, block_hash: str) -> list[dict]:
         """
-        Retrieve events for a given block hash.
+        Retrieve serialized events for a given block hash.
 
         Args:
             block_hash: The block hash to retrieve events for
 
         Returns:
-            List of events in the block
+            List of serialized events in the block
 
         """
-        return self.substrate.get_events(block_hash)
+        raw_events = self.substrate.get_events(block_hash)
+        return [event.serialize() for event in raw_events]
 
     def get_extrinsic_events(self, block_hash: str) -> dict[int, list[dict]]:
         """

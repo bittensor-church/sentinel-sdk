@@ -1,13 +1,13 @@
 """Extrinsic extractor."""
 
 from sentinel.v1.dto import ExtrinsicDTO
-from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.providers import BlockchainProvider
 
 
 class ExtrinsicExtractor:
     """Extracts extrinsics from a blockchain block."""
 
-    def __init__(self, provider: BittensorProvider, block_number: int) -> None:
+    def __init__(self, provider: BlockchainProvider, block_number: int) -> None:
         """
         Initialize the extrinsic extractor.
 
