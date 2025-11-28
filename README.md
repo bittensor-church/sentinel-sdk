@@ -1,6 +1,18 @@
 # sentinel
 &nbsp;[![Continuous Integration](https://github.com/bittensor-church/sentinel/workflows/Continuous%20Integration/badge.svg)](https://github.com/bittensor-church/sentinel/actions?query=workflow%3A%22Continuous+Integration%22)&nbsp;[![License](https://img.shields.io/pypi/l/bittensor-sentinel.svg?label=License)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![python versions](https://img.shields.io/pypi/pyversions/bittensor-sentinel.svg?label=python%20versions)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![PyPI version](https://img.shields.io/pypi/v/bittensor-sentinel.svg?label=PyPI%20version)](https://pypi.python.org/pypi/bittensor-sentinel)
 
+Sentinel is a blockchain data extraction and monitoring tool designed to work with the Bittensor network.
+
+Features:
+- Extract extrinsics, events, and hyperparameters from Bittensor blockchain.
+- Provides both a Python library and a command-line interface (CLI) for ease of use.
+
+## Installation
+
+```bash
+pip install bittensor-sentinel
+```
+
 ## Usage
 
 > [!IMPORTANT]
@@ -15,7 +27,8 @@ from sentinel.v1.services.sentinel import sentinel_service
 
 provider = bittensor_provider()
 service = sentinel_service(provider)
-for extrinsic in extrinsics:
+block = service.ingest_block(resolved_block)
+for extrinsic in block.extrinsics:
     print(extrinsic)
 ```
 
@@ -44,14 +57,6 @@ Sentinel CLI - Blockchain data extraction and monitoring tool.
 │ hyperparams   Read hyperparameters for a subnet at a specific block.         │
 │ block         Block-related commands.                                        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-
-
-## Installation
-
-```bash
-pip install bittensor-sentinel
 ```
 
 

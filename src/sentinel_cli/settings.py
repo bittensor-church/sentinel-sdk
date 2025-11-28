@@ -3,8 +3,6 @@
 from contextvars import ContextVar
 from enum import Enum
 
-MAX_VALUE_DISPLAY_LENGTH = 120
-
 
 class OutputFormat(str, Enum):
     """Output format options."""

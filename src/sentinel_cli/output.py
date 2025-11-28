@@ -20,15 +20,9 @@ MAX_VALUE_LENGTH = 80
 MAX_ATTR_LENGTH = 60
 
 
-# --- Format Detection ---
-
-
 def is_json_output() -> bool:
     """Check if JSON output format is selected."""
     return output_format.get() == OutputFormat.JSON
-
-
-# --- JSON Output ---
 
 
 def output_json(data: dict) -> None:
@@ -44,9 +38,6 @@ def output_error(message: str) -> None:
         console.print(f"[red]Error:[/red] {message}")
 
 
-# --- String Utilities ---
-
-
 def truncate(value: str, max_length: int = MAX_VALUE_LENGTH) -> str:
     """Truncate string if it exceeds max length."""
     if len(value) > max_length:
@@ -59,9 +50,6 @@ def format_block_id(block_number: int, index: int) -> str:
     return f"{block_number}-{index:04d}"
 
 
-# --- Status Styling ---
-
-
 def get_status_style(status: str | None) -> tuple[str, str]:
     """Get status display text and Rich style."""
     if status == "success":
@@ -69,9 +57,6 @@ def get_status_style(status: str | None) -> tuple[str, str]:
     if status == "failed":
         return "✗ failed", "red"
     return "unknown", "yellow"
-
-
-# --- Rich Text Builders ---
 
 
 def build_header_text(*, hash_value: str, signer: str | None = None) -> Text:
@@ -100,9 +85,6 @@ def build_panel_title(
     return title
 
 
-# --- Table Builders ---
-
-
 def build_key_value_table(
     rows: Iterable[tuple[str, Any]],
     *,
@@ -117,9 +99,6 @@ def build_key_value_table(
     for key, value in rows:
         table.add_row(key, truncate(str(value), max_value_length))
     return table
-
-
-# --- Panel Rendering ---
 
 
 def render_panel(

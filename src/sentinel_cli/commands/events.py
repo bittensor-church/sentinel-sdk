@@ -3,10 +3,82 @@
 from typing import Annotated
 
 import typer
+from rich.text import Text
 
+from sentinel.v1.dto import EventDTO
 from sentinel.v1.providers.bittensor import bittensor_provider
 from sentinel.v1.services.sentinel import sentinel_service
-from sentinel_cli.settings import MAX_VALUE_DISPLAY_LENGTH
+from sentinel_cli.blocks import resolve_block_hash, resolve_block_number
+from sentinel_cli.output import (
+    MAX_ATTR_LENGTH,
+    build_panel_title,
+    console,
+    format_block_id,
+    is_json_output,
+    output_json,
+    render_panel,
+    truncate,
+)
+
+
+def _display_event(block_number: int, index: int, event: EventDTO) -> None:
+    """Display an event as a Rich panel."""
+    event_id = format_block_id(block_number, index)
+    label = f"{event.module_id}.{event.event_id}"
+
+    title = build_panel_title(event_id, label)
+
+    content = Text()
+    content.append("Phase: ", style="dim")
+    content.append(f"{event.phase}\n")
+
+    if event.extrinsic_idx is not None:
+        content.append("Extrinsic: ", style="dim")
+        content.append(f"{format_block_id(block_number, event.extrinsic_idx)}\n")
+
+    if event.attributes:
+        content.append("Attributes: ", style="dim")
+        content.append(truncate(str(event.attributes), MAX_ATTR_LENGTH))
+
+    render_panel(title, content)
+
+
+def _output_table(
+    block_number: int,
+    block_hash: str,
+    events_list: list[EventDTO],
+) -> None:
+    """Output events as formatted Rich panels."""
+    console.print(f"Block: [cyan]{block_number}[/cyan]")
+    console.print(f"Hash: [dim]{block_hash}[/dim]")
+    console.print(f"\nEvents: [bold]{len(events_list)}[/bold] found")
+
+    if not events_list:
+        console.print("[dim]No events found.[/dim]")
+        return
+
+    console.print()
+    for i, event in enumerate(events_list):
+        _display_event(block_number, i, event)
+        console.print()
+
+
+def _output_json_format(
+    block_number: int,
+    block_hash: str,
+    events_list: list[EventDTO],
+) -> None:
+    """Output events as JSON."""
+    output_json(
+        {
+            "block_number": block_number,
+            "block_hash": block_hash,
+            "count": len(events_list),
+            "events": [
+                {"id": format_block_id(block_number, i), **event.model_dump()} for i, event in enumerate(events_list)
+            ],
+        },
+    )
 
 
 def events(
@@ -21,41 +93,14 @@ def events(
 ) -> None:
     """Read events from a blockchain block."""
     provider = bittensor_provider(network_uri=network)
-
-    resolved_block: int
-    if block_number is None:
-        current = provider.get_current_block()
-        if current.number is None:
-            typer.echo("Error: Could not determine current block number", err=True)
-            raise typer.Exit(1)
-        resolved_block = current.number
-        typer.echo(f"Using current block: {resolved_block}")
-    else:
-        resolved_block = block_number
-
-    block_hash = provider.get_hash_by_block_number(resolved_block)
-    if not block_hash:
-        typer.echo(f"Error: Block hash not found for block {resolved_block}", err=True)
-        raise typer.Exit(1)
-
-    typer.echo(f"Block: {resolved_block}")
-    typer.echo(f"Hash: {block_hash}")
     service = sentinel_service(provider)
-    block = service.ingest_block(resolved_block)
-    block_events = block.events
-    typer.echo(f"\nTotal events in block: {len(block_events)}")
 
-    if not block_events:
-        typer.echo("No events found.")
-        return
+    resolved_block = resolve_block_number(provider, block_number)
+    block_hash = resolve_block_hash(provider, resolved_block)
 
-    for i, event in enumerate(block_events):
-        typer.echo(f"\n[{i + 1}] {event.event.module_id}.{event.event.event_id}")
-        typer.echo(f"    Phase: {event.phase}")
-        if event.extrinsic_idx is not None:
-            typer.echo(f"    Extrinsic Index: {event.extrinsic_idx}")
-        if event.event.attributes:
-            attr_str = str(event.event.attributes)
-            if len(attr_str) > MAX_VALUE_DISPLAY_LENGTH:
-                attr_str = attr_str[:MAX_VALUE_DISPLAY_LENGTH] + "..."
-            typer.echo(f"    Attributes: {attr_str}")
+    events_list = service.ingest_block(resolved_block).events
+
+    if is_json_output():
+        _output_json_format(resolved_block, block_hash, events_list)
+    else:
+        _output_table(resolved_block, block_hash, events_list)

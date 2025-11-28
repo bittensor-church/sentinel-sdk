@@ -1,13 +1,11 @@
-"""Sentinel service for blockchain ingestion."""
-
 from sentinel.v1.models.block import Block
-from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.providers import BlockchainProvider
 
 
 class SentinelService:
     """Service for ingesting and processing blockchain blocks."""
 
-    def __init__(self, provider: BittensorProvider) -> None:
+    def __init__(self, provider: BlockchainProvider) -> None:
         """
         Initialize the SentinelService with a blockchain provider.
 
@@ -35,7 +33,7 @@ class SentinelService:
         return Block(self.provider, block_number, netuid)
 
 
-def sentinel_service(provider: BittensorProvider) -> SentinelService:
+def sentinel_service(provider: BlockchainProvider) -> SentinelService:
     """
     Factory function to create a SentinelService service instance.
 

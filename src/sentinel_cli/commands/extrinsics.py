@@ -29,9 +29,6 @@ if TYPE_CHECKING:
     from rich.console import RenderableType
 
 
-# --- Extrinsic Display ---
-
-
 def _build_args_table(ext: ExtrinsicDTO) -> Table | None:
     """Build args table for extrinsic."""
     if not ext.call.call_args:
@@ -96,9 +93,6 @@ def _display_hyperparam_extrinsic(block_number: int, index: int, ext: ExtrinsicD
     render_panel(title, content)
 
 
-# --- Output Formatters ---
-
-
 def _output_table(
     block_number: int,
     block_hash: str,
@@ -140,9 +134,6 @@ def _output_json_format(
             ],
         }
     )
-
-
-# --- Command ---
 
 
 def extrinsics(
