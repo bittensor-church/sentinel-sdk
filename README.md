@@ -1,5 +1,5 @@
 # sentinel
-&nbsp;[![Continuous Integration](https://github.com/bittensor-church/sentinel/workflows/Continuous%20Integration/badge.svg)](https://github.com/bittensor-church/sentinel/actions?query=workflow%3A%22Continuous+Integration%22)&nbsp;[![License](https://img.shields.io/pypi/l/sentinel.svg?label=License)](https://pypi.python.org/pypi/sentinel)&nbsp;[![python versions](https://img.shields.io/pypi/pyversions/sentinel.svg?label=python%20versions)](https://pypi.python.org/pypi/sentinel)&nbsp;[![PyPI version](https://img.shields.io/pypi/v/sentinel.svg?label=PyPI%20version)](https://pypi.python.org/pypi/sentinel)
+&nbsp;[![Continuous Integration](https://github.com/bittensor-church/sentinel/workflows/Continuous%20Integration/badge.svg)](https://github.com/bittensor-church/sentinel/actions?query=workflow%3A%22Continuous+Integration%22)&nbsp;[![License](https://img.shields.io/pypi/l/bittensor-sentinel.svg?label=License)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![python versions](https://img.shields.io/pypi/pyversions/bittensor-sentinel.svg?label=python%20versions)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![PyPI version](https://img.shields.io/pypi/v/bittensor-sentinel.svg?label=PyPI%20version)](https://pypi.python.org/pypi/bittensor-sentinel)
 
 ## Usage
 
