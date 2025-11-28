@@ -106,8 +106,8 @@ class ExtrinsicDTO(BaseModel):
     mode: dict | None = None
     events: list[EventDTO] | None = None
 
-    @computed_field
     @property
+    @computed_field
     def status(self) -> str | None:
         """Get extrinsic status from the last event."""
         if not self.events:

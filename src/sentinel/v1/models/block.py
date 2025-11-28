@@ -3,7 +3,7 @@
 from functools import cached_property
 
 from sentinel.v1.dto import EventDTO, ExtrinsicDTO, HyperparametersDTO
-from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.services.extractors.events.extractor import EventsExtractor
 from sentinel.v1.services.extractors.extrinsics import ExtrinsicExtractor
 from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
@@ -17,7 +17,7 @@ class Block:
     the lazy loading pattern to avoid unnecessary computation.
     """
 
-    def __init__(self, provider: BittensorProvider, block_number: int, netuid: int | None = None) -> None:
+    def __init__(self, provider: BlockchainProvider, block_number: int, netuid: int | None = None) -> None:
         """
         Initialize a Block instance.
 

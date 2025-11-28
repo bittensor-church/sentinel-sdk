@@ -11,6 +11,7 @@ class FakeBittensorProvider(BlockchainProvider):
         self.block_hashes: dict[int, str] = {}
         self.events: dict[str, list[dict[str, Any]]] = {}
         self.extrinsics: dict[str, list[dict[str, Any]]] = {}
+        self.hyperparams: dict[tuple[str, int], dict[str, Any]] = {}
 
     def get_block_hash(self, block_number: int) -> str | None:
         return self.block_hashes.get(block_number)
@@ -23,6 +24,14 @@ class FakeBittensorProvider(BlockchainProvider):
 
     def get_extrinsics(self, block_hash: str) -> list[dict[str, Any]] | None:
         return self.extrinsics.get(block_hash)
+
+    def get_subnet_hyperparams(
+        self,
+        block_hash: str,
+        netuid: int,
+    ) -> dict[str, Any] | None:
+        """Not implemented for the fake provider."""
+        return self.hyperparams.get((block_hash, netuid))
 
     def with_block(self, block_number: int, block_hash: str) -> "FakeBittensorProvider":
         """Add a block mapping."""
@@ -37,6 +46,16 @@ class FakeBittensorProvider(BlockchainProvider):
     def with_extrinsics(self, block_hash: str, extrinsics: list[dict[str, Any]]) -> "FakeBittensorProvider":
         """Add extrinsics for a block hash."""
         self.extrinsics[block_hash] = extrinsics
+        return self
+
+    def with_hyperparams(
+        self,
+        block_hash: str,
+        netuid: int,
+        hyperparams: dict[str, Any],
+    ) -> "FakeBittensorProvider":
+        """Add hyperparameters for a block hash and netuid."""
+        self.hyperparams[(block_hash, netuid)] = hyperparams
         return self
 
     @staticmethod

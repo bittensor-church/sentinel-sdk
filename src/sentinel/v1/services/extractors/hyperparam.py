@@ -1,13 +1,13 @@
 """Hyperparameter extractor."""
 
 from sentinel.v1.dto import HyperparametersDTO
-from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.providers.base import BlockchainProvider
 
 
 class HyperparamExtractor:
     """Extracts hyperparameters from a blockchain block."""
 
-    def __init__(self, provider: BittensorProvider, block_number: int, netuid: int) -> None:
+    def __init__(self, provider: BlockchainProvider, block_number: int, netuid: int) -> None:
         """
         Initialize the hyperparameter extractor.
 

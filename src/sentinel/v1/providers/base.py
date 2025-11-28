@@ -26,3 +26,8 @@ class BlockchainProvider(ABC):
     def get_extrinsics(self, block_hash: str) -> list[dict[str, Any]] | None:
         """Get extrinsics for a block hash."""
         ...
+
+    @abstractmethod
+    def get_subnet_hyperparams(self, block_hash: str, netuid: int) -> dict[str, Any] | None:
+        """Get subnet hyperparameters for a given block hash and netuid."""
+        ...
