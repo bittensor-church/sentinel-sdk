@@ -99,9 +99,18 @@ class BittensorProvider(BlockchainProvider):
         Returns:
             The block hash as a string, or None if not found
 
+        Raises:
+            ConnectionError: If WebSocket connection to the network fails
+
         """
-        async with self._get_client() as client:
-            return await client.subtensor.chain.getBlockHash(block_number)
+        try:
+            async with self._get_client() as client:
+                return await client.subtensor.chain.getBlockHash(block_number)
+        except AttributeError as e:
+            if "'NoneType' object has no attribute 'send'" in str(e):
+                msg = f"WebSocket connection failed - unable to connect to Bittensor network at {self._uri}"
+                raise ConnectionError(msg) from e
+            raise
 
     @async_to_sync
     async def get_extrinsics(self, block_hash: str) -> Extrinsic | None:
