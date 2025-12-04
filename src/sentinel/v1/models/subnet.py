@@ -30,6 +30,7 @@ class Subnet:
         extractor = HyperparamExtractor(self.provider, self.block_number, self.netuid)
         return extractor.extract()
 
+    @cached_property
     def metagraph(self) -> dict:
         """
         Retrieve metagraph for this block.

@@ -158,3 +158,20 @@ def filter_hyperparam_extrinsics(extrinsics: list[ExtrinsicDTO]) -> list[Extrins
 
     """
     return [ext for ext in extrinsics if is_hyperparam_extrinsic(ext)]
+
+
+def filter_weight_set_extrinsics(extrinsics: list[ExtrinsicDTO]) -> list[ExtrinsicDTO]:
+    """
+    Filter extrinsics to only include weight set changes.
+
+    Args:
+        extrinsics: List of extrinsics to filter
+
+    Returns:
+        List containing only weight set changing extrinsics
+
+    """
+    weight_set_functions = {
+        "set_weights",
+    }
+    return [ext for ext in extrinsics if ext.call.call_function in weight_set_functions]

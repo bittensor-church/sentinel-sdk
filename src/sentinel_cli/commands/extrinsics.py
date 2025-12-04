@@ -9,6 +9,7 @@ from rich.text import Text
 from sentinel.v1.dto import ExtrinsicDTO
 from sentinel.v1.providers.bittensor import bittensor_provider
 from sentinel.v1.services.extractors.extrinsics import filter_hyperparam_extrinsics, get_hyperparam_info
+from sentinel.v1.services.extractors.extrinsics.filters import filter_weight_set_extrinsics
 from sentinel.v1.services.sentinel import sentinel_service
 from sentinel_cli.blocks import resolve_block_hash, resolve_block_number
 from sentinel_cli.output import (
@@ -150,6 +151,10 @@ def extrinsics(
         bool,
         typer.Option("--hyperparams", "-p", help="Show only hyperparameter change extrinsics."),
     ] = False,
+    weight_set_only: Annotated[
+        bool,
+        typer.Option("--weight-sets", "-w", help="Show only weight set extrinsics."),
+    ] = False,
 ) -> None:
     """Read extrinsics from a blockchain block."""
     provider = bittensor_provider(network_uri=network)
@@ -162,6 +167,9 @@ def extrinsics(
 
     if hyperparams_only:
         extrinsics_list = filter_hyperparam_extrinsics(extrinsics_list)
+
+    if weight_set_only:
+        extrinsics_list = filter_weight_set_extrinsics(extrinsics_list)
 
     if is_json_output():
         _output_json_format(resolved_block, block_hash, extrinsics_list)
