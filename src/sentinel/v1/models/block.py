@@ -2,11 +2,10 @@
 
 from functools import cached_property
 
-from sentinel.v1.dto import EventDTO, ExtrinsicDTO, HyperparametersDTO
+from sentinel.v1.dto import EventDTO, ExtrinsicDTO
 from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.services.extractors.events.extractor import EventsExtractor
 from sentinel.v1.services.extractors.extrinsics import ExtrinsicExtractor
-from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
 
 
 class Block:
@@ -31,6 +30,17 @@ class Block:
         self.block_number = block_number
         self.netuid = netuid
 
+    def transactions(self) -> list[dict]:
+        """
+        Retrieve transactions for this block.
+
+        Returns:
+            List of transactions in the block
+
+        """
+        msg = "Transaction extraction not yet implemented"
+        raise NotImplementedError(msg)
+
     @cached_property
     def extrinsics(self) -> list[ExtrinsicDTO]:
         """
@@ -53,17 +63,6 @@ class Block:
             for idx, ext in enumerate(raw_extrinsics)
         ]
 
-    def transactions(self) -> list[dict]:
-        """
-        Retrieve transactions for this block.
-
-        Returns:
-            List of transactions in the block
-
-        """
-        msg = "Transaction extraction not yet implemented"
-        raise NotImplementedError(msg)
-
     @cached_property
     def events(self) -> list[EventDTO]:
         """
@@ -74,36 +73,4 @@ class Block:
 
         """
         extractor = EventsExtractor(self.provider, self.block_number)
-        return extractor.extract()
-
-    def metagraph(self) -> dict:
-        """
-        Retrieve metagraph for this block.
-
-        Returns:
-            Metagraph data for the block
-
-        """
-        msg = "Metagraph extraction not yet implemented"
-        raise NotImplementedError(msg)
-
-    @cached_property
-    def hyperparameters(self) -> HyperparametersDTO:
-        """
-        Lazily extract and return hyperparameters for this block.
-
-        The extraction only happens on first access, then cached.
-        Requires netuid to be set during Block initialization.
-
-        Returns:
-            HyperparametersDTO containing the block's hyperparameters
-
-        Raises:
-            ValueError: If netuid was not provided during initialization
-
-        """
-        if self.netuid is None:
-            msg = "netuid must be provided to access hyperparameters"
-            raise ValueError(msg)
-        extractor = HyperparamExtractor(self.provider, self.block_number, self.netuid)
         return extractor.extract()
