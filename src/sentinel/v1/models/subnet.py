@@ -6,7 +6,6 @@ from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
 
 
 class Subnet:
-
     def __init__(self, provider: BlockchainProvider, netuid: int, block_number: int) -> None:
         self.provider = provider
         self.block_number = block_number
