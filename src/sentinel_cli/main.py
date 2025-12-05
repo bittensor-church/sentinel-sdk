@@ -4,7 +4,7 @@ from typing import Annotated
 
 import typer
 
-from sentinel_cli.commands import block
+from sentinel_cli.commands import block, subnet
 from sentinel_cli.commands.events import events
 from sentinel_cli.commands.extrinsics import extrinsics
 from sentinel_cli.commands.hyperparams import hyperparams
@@ -35,6 +35,7 @@ def main_callback(
 
 # Register subcommand groups
 app.add_typer(block.app, name="block")
+app.add_typer(subnet.subnet, name="subnet")
 
 # Register top-level commands
 app.command()(extrinsics)

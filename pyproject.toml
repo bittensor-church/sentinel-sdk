@@ -20,6 +20,7 @@ dynamic = [
 ]
 dependencies = [
     "asgiref>=3.11.0",
+    "bittensor>=9.12.2",
     "pydantic>=2.12.5",
     "structlog>=25.5.0",
     "substrate-interface>=1.7.0",

@@ -1,15 +1,20 @@
 from functools import cached_property
 
+import bittensor
+from bittensor.core.chain_data import MetagraphInfo
+
 from sentinel.v1.dto import HyperparametersDTO
 from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
+from sentinel.v1.services.extractors.metagraph.extractor import MetagraphExtractor
 
 
 class Subnet:
-    def __init__(self, provider: BlockchainProvider, netuid: int, block_number: int) -> None:
+    def __init__(self, provider: BlockchainProvider, netuid: int, block_number: int, mech_id: int = 0) -> None:
         self.provider = provider
         self.block_number = block_number
         self.netuid = netuid
+        self.mech_id = mech_id
 
     @cached_property
     def hyperparameters(self) -> HyperparametersDTO:
@@ -30,7 +35,7 @@ class Subnet:
         return extractor.extract()
 
     @cached_property
-    def metagraph(self) -> dict:
+    def metagraph(self) -> MetagraphInfo | None:
         """
         Retrieve metagraph for this block.
 
@@ -38,5 +43,6 @@ class Subnet:
             Metagraph data for the block
 
         """
-        msg = "Metagraph extraction not yet implemented"
-        raise NotImplementedError(msg)
+        subtensor = bittensor.subtensor()
+        extractor = MetagraphExtractor(subtensor, self.block_number, self.netuid, mech_id=self.mech_id)
+        return extractor.extract()
