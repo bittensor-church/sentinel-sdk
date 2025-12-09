@@ -106,8 +106,5 @@ def render_panel(
     *renderables: RenderableType,
 ) -> None:
     """Render a panel with the given title and content."""
-    if len(renderables) == 1:
-        content = renderables[0]
-    else:
-        content = Group(*renderables)
+    content = renderables[0] if len(renderables) == 1 else Group(*renderables)
     console.print(Panel(content, title=title, title_align="left", border_style="dim"))

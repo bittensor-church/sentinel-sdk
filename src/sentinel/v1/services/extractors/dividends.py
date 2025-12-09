@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
 import numpy as np
-from bittensor.core.subtensor import Subtensor
+from bittensor.core.subtensor import Subtensor  # type: ignore[import-untyped]
+
+YUMA_VERSION_3 = 3
 
 
 @dataclass
@@ -43,13 +45,15 @@ class DividendsExtractor:
 
     def extract(self) -> DividendsResult:
         """Extract dividends for each identity in the subnet."""
-        metagraph = self.subtensor.metagraph(netuid=self.netuid, block=self.block_number)
+        metagraph = self.subtensor.metagraph(netuid=self.netuid, block=self.block_number, mechid=self.mech_id)
         if metagraph is None:
             return DividendsResult(records=[], yuma3_enabled=True, mech_id=self.mech_id)
 
-        # Check which Yuma version is enabled
+        # Check which Yuma version is enabled (yuma_version: 1, 2, or 3)
         hyperparams = self.subtensor.get_subnet_hyperparameters(netuid=self.netuid, block=self.block_number)
-        yuma3_enabled = getattr(hyperparams, "yuma3_enabled", True) if hyperparams else True
+
+        yuma_version = getattr(hyperparams, "yuma_version", YUMA_VERSION_3) if hyperparams else YUMA_VERSION_3
+        yuma3_enabled = yuma_version == YUMA_VERSION_3
 
         num_uids = len(metagraph.hotkeys)
         if num_uids == 0:

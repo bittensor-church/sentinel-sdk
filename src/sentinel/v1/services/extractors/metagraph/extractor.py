@@ -1,5 +1,5 @@
-from bittensor.core.chain_data import MetagraphInfo
-from bittensor.core.subtensor import Subtensor
+from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
+from bittensor.core.subtensor import Subtensor  # type: ignore[import-untyped]
 
 
 class MetagraphExtractor:

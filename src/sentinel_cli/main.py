@@ -7,7 +7,6 @@ import typer
 from sentinel_cli.commands import block, subnet
 from sentinel_cli.commands.events import events
 from sentinel_cli.commands.extrinsics import extrinsics
-from sentinel_cli.commands.hyperparams import hyperparams
 from sentinel_cli.settings import OutputFormat, output_format
 
 app = typer.Typer(
@@ -40,7 +39,6 @@ app.add_typer(subnet.subnet, name="subnet")
 # Register top-level commands
 app.command()(extrinsics)
 app.command()(events)
-app.command()(hyperparams)
 
 
 def main() -> None:

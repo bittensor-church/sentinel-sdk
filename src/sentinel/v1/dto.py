@@ -106,7 +106,7 @@ class ExtrinsicDTO(BaseModel):
     mode: dict | None = None
     events: list[EventDTO] | None = None
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def status(self) -> str | None:
         """Get extrinsic status from the last event."""
@@ -117,4 +117,19 @@ class ExtrinsicDTO(BaseModel):
             return "success"
         if last_event.module_id == "System" and last_event.event_id == "ExtrinsicFailed":
             return "failed"
+        return None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def netuid(self) -> int | None:
+        """Extract netuid from call arguments if present."""
+        for arg in self.call.call_args:
+            if arg.name == "netuid":
+                if isinstance(arg.value, int):
+                    return arg.value
+                if isinstance(arg.value, str):
+                    try:
+                        return int(arg.value)
+                    except ValueError:
+                        return None
         return None

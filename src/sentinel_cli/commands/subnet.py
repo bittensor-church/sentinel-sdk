@@ -2,11 +2,12 @@
 
 from typing import Annotated
 
-import bittensor
+import bittensor  # type: ignore[import-untyped]
 import typer
-from bittensor.core.chain_data import MetagraphInfo
+from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
 from rich.table import Table
 
+from sentinel.v1.dto import HyperparametersDTO
 from sentinel.v1.models.subnet import Subnet
 from sentinel.v1.providers.bittensor import bittensor_provider
 from sentinel.v1.services.extractors.dividends import DividendRecord, DividendsExtractor
@@ -81,6 +82,52 @@ def _build_dividends_table(metagraph: MetagraphInfo) -> Table:
     return table
 
 
+def _build_metagraph_table(metagraph: MetagraphInfo) -> Table:
+    """Build a table displaying metagraph neuron data."""
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+    table.add_column("UID", style="cyan", justify="right")
+    table.add_column("Stake", justify="right")
+    table.add_column("Trust", justify="right")
+    table.add_column("Consensus", justify="right")
+    table.add_column("Incentive", justify="right")
+    table.add_column("Dividends", justify="right")
+    table.add_column("Emission", justify="right")
+    table.add_column("VPermit", justify="center")
+    table.add_column("Updated", justify="right")
+    table.add_column("Active", justify="center")
+    table.add_column("Hotkey")
+
+    for uid in range(len(metagraph.hotkeys)):
+        stake = metagraph.total_stake[uid]
+        trust = metagraph.trust[uid]
+        consensus = metagraph.consensus[uid]
+        incentive = metagraph.incentives[uid]
+        dividend = metagraph.dividends[uid]
+        emission = metagraph.emission[uid]
+        vpermit = metagraph.validator_permit[uid]
+        last_update = metagraph.last_update[uid]
+        active = metagraph.active[uid]
+        hotkey = metagraph.hotkeys[uid]
+
+        hotkey_display = hotkey[:HOTKEY_DISPLAY_LENGTH] + "..." if len(hotkey) > HOTKEY_DISPLAY_LENGTH else hotkey
+
+        table.add_row(
+            str(uid),
+            f"{stake.tao:.4f}",
+            f"{trust:.5f}",
+            f"{consensus:.5f}",
+            f"{incentive:.5f}",
+            f"{dividend:.5f}",
+            f"{emission.tao:.5f}",
+            "[green]✓[/green]" if vpermit else "[dim]-[/dim]",
+            str(last_update),
+            "[green]✓[/green]" if active else "[dim]-[/dim]",
+            hotkey_display,
+        )
+
+    return table
+
+
 @subnet.command()
 def metagraph(
     ctx: typer.Context,
@@ -138,8 +185,37 @@ def metagraph(
             total_dividends = sum(metagraph_data.dividends)
             console.print()
             console.print(f"Total dividends: [bold]{total_dividends:.6f}[/bold]")
+    elif is_json_output():
+        output_json(
+            {
+                "block_number": resolved_block,
+                "netuid": netuid,
+                "name": metagraph_data.name,
+                "symbol": metagraph_data.symbol,
+                "neurons": [
+                    {
+                        "uid": uid,
+                        "hotkey": metagraph_data.hotkeys[uid],
+                        "coldkey": metagraph_data.coldkeys[uid],
+                        "stake": float(metagraph_data.total_stake[uid].tao),
+                        "trust": metagraph_data.trust[uid],
+                        "consensus": metagraph_data.consensus[uid],
+                        "incentive": metagraph_data.incentives[uid],
+                        "dividends": metagraph_data.dividends[uid],
+                        "emission": float(metagraph_data.emission[uid].tao),
+                        "validator_permit": metagraph_data.validator_permit[uid],
+                        "last_update": metagraph_data.last_update[uid],
+                        "active": metagraph_data.active[uid],
+                    }
+                    for uid in range(len(metagraph_data.hotkeys))
+                ],
+            },
+        )
     else:
-        console.print(f"Metagraph: [dim]{metagraph_data}[/dim]")
+        console.print(f"Name: [cyan]{metagraph_data.name}[/cyan] ({metagraph_data.symbol})")
+        console.print(f"N: [cyan]{len(metagraph_data.hotkeys)}[/cyan]")
+        console.print()
+        console.print(_build_metagraph_table(metagraph_data))
 
 
 def _build_manual_dividends_table(records: list[DividendRecord]) -> Table:
@@ -162,7 +238,8 @@ def _build_manual_dividends_table(records: list[DividendRecord]) -> Table:
             str(record.uid),
             identity_name,
             hotkey_display,
-            f"{record.dividend:.6f}",
+            str(record.dividend),
+            # f"{record.dividend:.6f}",
             f"{record.stake:.2f}",
         )
 
@@ -201,3 +278,45 @@ def dividends_manual(
     total_dividends = sum(r.dividend for r in result.records)
     console.print()
     console.print(f"Total dividends: [bold]{total_dividends:.6f}[/bold]")
+
+
+def _build_hyperparams_table(hyperparams_data: HyperparametersDTO) -> Table:
+    """Build a table displaying hyperparameters."""
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+    table.add_column("Parameter", style="dim")
+    table.add_column("Value")
+
+    for field, value in hyperparams_data.model_dump().items():
+        table.add_row(field, str(value))
+
+    return table
+
+
+@subnet.command()
+def hyperparams(
+    ctx: typer.Context,
+) -> None:
+    """Read hyperparameters for a subnet at a specific block."""
+    netuid = ctx.obj["netuid"]
+    block_number = ctx.obj["block_number"]
+    network = ctx.obj["network"]
+
+    provider = bittensor_provider(network_uri=network)
+    resolved_block = resolve_block_number(provider, block_number)
+
+    subnet_instance = Subnet(provider, netuid, resolved_block)
+    hyperparams_data = subnet_instance.hyperparameters
+
+    if is_json_output():
+        output_json(
+            {
+                "block_number": resolved_block,
+                "netuid": netuid,
+                **hyperparams_data.model_dump(),
+            },
+        )
+    else:
+        console.print(f"Block: [cyan]{resolved_block}[/cyan]")
+        console.print(f"Subnet: [cyan]{netuid}[/cyan]")
+        console.print()
+        console.print(_build_hyperparams_table(hyperparams_data))

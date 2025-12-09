@@ -1,7 +1,7 @@
 from functools import cached_property
 
-import bittensor
-from bittensor.core.chain_data import MetagraphInfo
+import bittensor  # type: ignore[import-untyped]
+from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
 
 from sentinel.v1.dto import HyperparametersDTO
 from sentinel.v1.providers.base import BlockchainProvider

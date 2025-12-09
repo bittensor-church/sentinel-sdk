@@ -1,6 +1,10 @@
 """Extrinsic filtering utilities for hyperparameter changes."""
 
+import structlog
+
 from sentinel.v1.dto import CallDTO, ExtrinsicDTO
+
+logger = structlog.get_logger()
 
 # Modules that can contain hyperparameter changes
 HYPERPARAM_MODULES = {"AdminUtils", "SubtensorModule"}

@@ -40,7 +40,7 @@ def mock_metagraph() -> MagicMock:
 def mock_hyperparams() -> MagicMock:
     """Create mock hyperparameters."""
     hyperparams = MagicMock()
-    hyperparams.yuma3_enabled = True
+    hyperparams.yuma_version = 3  # Yuma3
     return hyperparams
 
 
@@ -121,18 +121,18 @@ class TestDividendsExtractor:
         mock_subtensor.metagraph.return_value = mock_metagraph
         mock_subtensor.bonds.return_value = []
 
-        # Test Yuma3 enabled
+        # Test Yuma3 (version = 3)
         hyperparams_v3 = MagicMock()
-        hyperparams_v3.yuma3_enabled = True
+        hyperparams_v3.yuma_version = 3
         mock_subtensor.get_subnet_hyperparameters.return_value = hyperparams_v3
 
         extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
         result = extractor.extract()
         assert result.yuma3_enabled is True
 
-        # Test Yuma2 (v3 disabled)
+        # Test Yuma2 (version = 2)
         hyperparams_v2 = MagicMock()
-        hyperparams_v2.yuma3_enabled = False
+        hyperparams_v2.yuma_version = 2
         mock_subtensor.get_subnet_hyperparameters.return_value = hyperparams_v2
 
         result = extractor.extract()
