@@ -9,6 +9,11 @@ upcoming release can be found in [changelog.d](changelog.d).
 
 <!-- towncrier release notes start -->
 
+## [0.0.9](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.9) - 2025-12-09
+
+No significant changes.
+
+
 ## [0.0.8](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.8) - 2025-12-05
 
 No significant changes.
