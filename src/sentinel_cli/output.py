@@ -25,6 +25,11 @@ def is_json_output() -> bool:
     return output_format.get() == OutputFormat.JSON
 
 
+def is_raw_output() -> bool:
+    """Check if raw output format is selected."""
+    return output_format.get() == OutputFormat.RAW
+
+
 def output_json(data: dict) -> None:
     """Output data as formatted JSON."""
     typer.echo(json.dumps(data, indent=2, default=str))

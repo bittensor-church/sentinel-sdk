@@ -113,7 +113,7 @@ class BittensorProvider(BlockchainProvider):
             raise
 
     @async_to_sync
-    async def get_extrinsics(self, block_hash: str) -> Extrinsic | None:
+    async def get_extrinsics(self, block_hash: str) -> list[Extrinsic] | None:
         """
         Retrieve extrinsics for a given block hash.
 

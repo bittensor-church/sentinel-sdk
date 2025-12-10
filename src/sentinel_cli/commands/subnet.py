@@ -1,18 +1,21 @@
 """Block CLI commands."""
 
-from typing import Annotated
+from __future__ import annotations
 
-import bittensor  # type: ignore[import-untyped]
+from typing import TYPE_CHECKING, Annotated
+
 import typer
-from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
 from rich.table import Table
+
+if TYPE_CHECKING:
+    from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
 
 from sentinel.v1.dto import HyperparametersDTO
 from sentinel.v1.models.subnet import Subnet
 from sentinel.v1.providers.bittensor import bittensor_provider
 from sentinel.v1.services.extractors.dividends import DividendRecord, DividendsExtractor
 from sentinel_cli.blocks import resolve_block_number
-from sentinel_cli.output import console, is_json_output, output_json
+from sentinel_cli.output import console, is_json_output, is_raw_output, output_json
 
 HOTKEY_DISPLAY_LENGTH = 16
 
@@ -211,6 +214,8 @@ def metagraph(
                 ],
             },
         )
+    elif is_raw_output():
+        console.print(metagraph_data)
     else:
         console.print(f"Name: [cyan]{metagraph_data.name}[/cyan] ({metagraph_data.symbol})")
         console.print(f"N: [cyan]{len(metagraph_data.hotkeys)}[/cyan]")
@@ -255,6 +260,8 @@ def dividends_manual(
     block_number = ctx.obj["block_number"]
     network = ctx.obj["network"]
     mech_id = ctx.obj["mech_id"]
+
+    import bittensor  # type: ignore[import-untyped]  # noqa: PLC0415
 
     provider = bittensor_provider(network_uri=network)
     resolved_block = resolve_block_number(provider, block_number)

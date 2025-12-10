@@ -96,6 +96,34 @@ class SubstrateProvider:
         with self._get_client() as client:
             return client.get_events(block_hash=block_hash)
 
+    def get_runtime_version(self, block_hash: str | None = None) -> dict[str, Any]:
+        """
+        Get the runtime version at a specific block.
+
+        Args:
+            block_hash: The block hash to query. If None, uses chain head.
+
+        Returns:
+            Dict containing spec_name, spec_version, impl_version, etc.
+
+        """
+        with self._get_client() as client:
+            return client.get_block_runtime_version(block_hash=block_hash)
+
+    def get_spec_version(self, block_hash: str | None = None) -> int:
+        """
+        Get the spec_version at a specific block.
+
+        Args:
+            block_hash: The block hash to query. If None, uses chain head.
+
+        Returns:
+            The runtime spec_version as an integer (e.g., 6800000)
+
+        """
+        runtime_version = self.get_runtime_version(block_hash)
+        return runtime_version["specVersion"]
+
     def get_extrinsic_events(self, block_hash: str) -> dict[int, list[dict[str, Any]]]:
         """
         Get events grouped by extrinsic index.

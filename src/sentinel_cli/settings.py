@@ -9,6 +9,7 @@ class OutputFormat(str, Enum):
 
     TABLE = "table"
     JSON = "json"
+    RAW = "raw"
 
 
 # Global context for CLI settings
