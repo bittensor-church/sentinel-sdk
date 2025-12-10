@@ -57,11 +57,11 @@ class CallDTO(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    call_index: str
+    call_index: str | None = None
     call_function: str
     call_module: str
     call_args: list[CallArgDTO]
-    call_hash: str
+    call_hash: str | None = None
 
 
 class EventDataDTO(BaseModel):
@@ -69,7 +69,7 @@ class EventDataDTO(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    event_index: str
+    event_index: str | int
     module_id: str
     event_id: str
     attributes: dict | tuple | list | str | None = None
@@ -82,12 +82,12 @@ class EventDTO(BaseModel):
 
     phase: str | dict
     extrinsic_idx: int | None
-    event: EventDataDTO
-    event_index: int
+    event: EventDataDTO | None = None
+    event_index: str | int
     module_id: str
     event_id: str
     attributes: dict | tuple | list | str | None = None
-    topics: list
+    topics: list | None = None
 
 
 class ExtrinsicDTO(BaseModel):
@@ -95,15 +95,13 @@ class ExtrinsicDTO(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    extrinsic_hash: str
-    extrinsic_length: int
+    index: int
+    extrinsic_hash: str | None = None
     call: CallDTO
     address: str | None = None
     signature: dict | None = None
-    era: tuple[int, int] | str | None = None
     nonce: int | None = None
     tip: int | None = None
-    mode: dict | None = None
     events: list[EventDTO] | None = None
 
     @computed_field  # type: ignore[prop-decorator]

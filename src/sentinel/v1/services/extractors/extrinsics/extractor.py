@@ -1,6 +1,8 @@
 """Extrinsic extractor."""
 
-from sentinel.v1.dto import ExtrinsicDTO
+from typing import Any
+
+from sentinel.v1.dto import CallArgDTO, CallDTO, ExtrinsicDTO
 from sentinel.v1.providers import BlockchainProvider
 
 
@@ -19,6 +21,42 @@ class ExtrinsicExtractor:
         self.provider = provider
         self.block_number = block_number
 
+    def _convert_extrinsic_hash(self, hash_value: bytes | str | None) -> str | None:
+        """Convert extrinsic hash from bytes to hex string."""
+        if hash_value is None:
+            return None
+        if isinstance(hash_value, bytes):
+            return "0x" + hash_value.hex()
+        return hash_value
+
+    def _build_call_dto(self, ext: dict[str, Any]) -> CallDTO:
+        """Build a CallDTO from the flattened extrinsic data."""
+        call_args = [
+            CallArgDTO(
+                name=arg.get("name", ""),
+                type=arg.get("type", ""),
+                value=arg.get("value"),
+            )
+            for arg in ext.get("call_args", [])
+        ]
+        return CallDTO(
+            call_function=ext.get("call_function", ""),
+            call_module=ext.get("call_module", ""),
+            call_args=call_args,
+        )
+
+    def _build_extrinsic_dto(self, ext: dict[str, Any]) -> ExtrinsicDTO:
+        """Build an ExtrinsicDTO from raw provider data."""
+        return ExtrinsicDTO(
+            index=ext.get("index", 0),
+            extrinsic_hash=self._convert_extrinsic_hash(ext.get("extrinsic_hash")),
+            call=self._build_call_dto(ext),
+            address=ext.get("address"),
+            signature=ext.get("signature"),
+            nonce=ext.get("nonce"),
+            tip=ext.get("tip"),
+        )
+
     def extract(self) -> list[ExtrinsicDTO]:
         """
         Extract extrinsics from the blockchain block.
@@ -36,4 +74,4 @@ class ExtrinsicExtractor:
         if extrinsics_json is None:
             return []
 
-        return [ExtrinsicDTO.model_validate(ext) for ext in extrinsics_json]
+        return [self._build_extrinsic_dto(ext) for ext in extrinsics_json]

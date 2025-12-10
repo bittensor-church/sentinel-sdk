@@ -60,7 +60,7 @@ def _display_extrinsic(block_number: int, index: int, ext: ExtrinsicDTO) -> None
     label = f"{ext.call.call_module}.{ext.call.call_function}"
 
     title = build_panel_title(ext_id, label, ext.status)
-    header = build_header_text(hash_value=ext.extrinsic_hash, signer=ext.address)
+    header = build_header_text(hash_value=ext.extrinsic_hash or "N/A", signer=ext.address)
 
     renderables: list[RenderableType] = [header]
     if args_table := _build_args_table(ext):
@@ -84,7 +84,7 @@ def _display_hyperparam_extrinsic(block_number: int, index: int, ext: ExtrinsicD
     title = build_panel_title(ext_id, label, ext.status)
 
     # Custom content for hyperparam extrinsics
-    content = build_header_text(hash_value=ext.extrinsic_hash, signer=ext.address)
+    content = build_header_text(hash_value=ext.extrinsic_hash or "N/A", signer=ext.address)
     if info["params"]:
         content.append("\n\nChanged params:\n", style="bold")
         for param, value in info["params"].items():
@@ -98,12 +98,15 @@ def _output_table(
     block_number: int,
     block_hash: str,
     extrinsics_list: list[ExtrinsicDTO],
+    timestamp: int | None,
     *,
     hyperparams_only: bool,
 ) -> None:
     """Output extrinsics as formatted Rich panels."""
     console.print(f"Block: [cyan]{block_number}[/cyan]")
     console.print(f"Hash: [dim]{block_hash}[/dim]")
+    if timestamp is not None:
+        console.print(f"Timestamp: [dim]{timestamp}[/dim]")
 
     label = "Hyperparam changes" if hyperparams_only else "Extrinsics"
     console.print(f"\n{label}: [bold]{len(extrinsics_list)}[/bold] found")
@@ -114,8 +117,8 @@ def _output_table(
 
     console.print()
     display_fn = _display_hyperparam_extrinsic if hyperparams_only else _display_extrinsic
-    for i, ext in enumerate(extrinsics_list):
-        display_fn(block_number, i, ext)
+    for ext in extrinsics_list:
+        display_fn(block_number, ext.index, ext)
         console.print()
 
 
@@ -123,15 +126,17 @@ def _output_json_format(
     block_number: int,
     block_hash: str,
     extrinsics_list: list[ExtrinsicDTO],
+    timestamp: int | None,
 ) -> None:
     """Output extrinsics as JSON."""
     output_json(
         {
             "block_number": block_number,
             "block_hash": block_hash,
+            "timestamp": timestamp,
             "count": len(extrinsics_list),
             "extrinsics": [
-                {"id": format_block_id(block_number, i), **ext.model_dump()} for i, ext in enumerate(extrinsics_list)
+                {"id": format_block_id(block_number, ext.index), **ext.model_dump()} for ext in extrinsics_list
             ],
         }
     )
@@ -163,7 +168,8 @@ def extrinsics(
     resolved_block = resolve_block_number(provider, block_number)
     block_hash = resolve_block_hash(provider, resolved_block)
 
-    extrinsics_list = service.ingest_block(resolved_block).extrinsics
+    block = service.ingest_block(resolved_block)
+    extrinsics_list = block.extrinsics
 
     if hyperparams_only:
         extrinsics_list = filter_hyperparam_extrinsics(extrinsics_list)
@@ -172,6 +178,6 @@ def extrinsics(
         extrinsics_list = filter_weight_set_extrinsics(extrinsics_list)
 
     if is_json_output():
-        _output_json_format(resolved_block, block_hash, extrinsics_list)
+        _output_json_format(resolved_block, block_hash, extrinsics_list, block.timestamp)
     else:
-        _output_table(resolved_block, block_hash, extrinsics_list, hyperparams_only=hyperparams_only)
+        _output_table(resolved_block, block_hash, extrinsics_list, block.timestamp, hyperparams_only=hyperparams_only)

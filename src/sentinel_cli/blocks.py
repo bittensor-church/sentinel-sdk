@@ -25,13 +25,13 @@ def resolve_block_number(provider: BittensorProvider, block_number: int | None) 
         return block_number
 
     current = provider.get_current_block()
-    if current.number is None:
+    if current is None:
         output_error("Could not determine current block number")
         raise typer.Exit(1)
 
     if not is_json_output():
-        console.print(f"Using current block: [cyan]{current.number}[/cyan]")
-    return current.number
+        console.print(f"Using current block: [cyan]{current}[/cyan]")
+    return current
 
 
 def resolve_block_hash(provider: BittensorProvider, block_number: int) -> str:

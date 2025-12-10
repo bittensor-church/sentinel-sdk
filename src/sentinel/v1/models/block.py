@@ -6,6 +6,7 @@ from sentinel.v1.dto import EventDTO, ExtrinsicDTO
 from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.services.extractors.events.extractor import EventsExtractor
 from sentinel.v1.services.extractors.extrinsics import ExtrinsicExtractor
+from sentinel.v1.services.extractors.extrinsics.filters import filter_timestamp_extrinsic
 
 
 class Block:
@@ -59,9 +60,27 @@ class Block:
             return raw_extrinsics
 
         return [
-            ext.model_copy(update={"events": [e for e in events if e.extrinsic_idx == idx]})
-            for idx, ext in enumerate(raw_extrinsics)
+            ext.model_copy(update={"events": [e for e in events if e.extrinsic_idx == ext.index]})
+            for ext in raw_extrinsics
         ]
+
+    @cached_property
+    def timestamp(self) -> int | None:
+        """
+        Retrieve the timestamp of this block.
+
+        Returns:
+            Block timestamp as an integer
+
+        """
+        timestampt_extrinsic = filter_timestamp_extrinsic(self.extrinsics)
+
+        try:
+            value = timestampt_extrinsic[0].call.call_args[0].value
+            timestamp = int(value) if isinstance(value, (int, str)) else None
+        except (IndexError, AttributeError, ValueError, TypeError):
+            timestamp = None
+        return timestamp
 
     @cached_property
     def events(self) -> list[EventDTO]:

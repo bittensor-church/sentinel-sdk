@@ -1,12 +1,15 @@
-from functools import cached_property
+from __future__ import annotations
 
-import bittensor  # type: ignore[import-untyped]
-from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
+from functools import cached_property
+from typing import TYPE_CHECKING, Any
 
 from sentinel.v1.dto import HyperparametersDTO
 from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
 from sentinel.v1.services.extractors.metagraph.extractor import MetagraphExtractor
+
+if TYPE_CHECKING:
+    from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
 
 
 class Subnet:
@@ -43,6 +46,8 @@ class Subnet:
             Metagraph data for the block
 
         """
+        import bittensor  # type: ignore[import-untyped]  # noqa: PLC0415
+
         subtensor = bittensor.subtensor()
         extractor = MetagraphExtractor(subtensor, self.block_number, self.netuid, mech_id=self.mech_id)
         return extractor.extract()

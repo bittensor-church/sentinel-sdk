@@ -179,3 +179,20 @@ def filter_weight_set_extrinsics(extrinsics: list[ExtrinsicDTO]) -> list[Extrins
         "set_weights",
     }
     return [ext for ext in extrinsics if ext.call.call_function in weight_set_functions]
+
+
+def filter_timestamp_extrinsic(extrinsics: list[ExtrinsicDTO]) -> list[ExtrinsicDTO]:
+    """
+    Filter extrinsics to only include timestamp set calls.
+
+    Args:
+        extrinsics: List of extrinsics to filter
+
+    Returns:
+        List containing only timestamp extrinsics
+
+    """
+    return [
+        ext for ext in extrinsics
+        if ext.call.call_module == "Timestamp" and ext.call.call_function == "set"
+    ]
