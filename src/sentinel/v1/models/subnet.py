@@ -3,21 +3,22 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from sentinel.v1.dto import HyperparametersDTO
-from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.services.extractors.hyperparam import HyperparamExtractor
 from sentinel.v1.services.extractors.metagraph.extractor import MetagraphExtractor
+from sentinel.v1.services.extractors.subnet.extractor import SubnetInfoExtractor
 
 if TYPE_CHECKING:
-    from bittensor.core.chain_data import MetagraphInfo  # type: ignore[import-untyped]
+    from sentinel.v1.dto import HyperparametersDTO
+    from sentinel.v1.providers.base import BlockchainProvider
+    from sentinel.v1.services.extractors.metagraph.dto import FullSubnetSnapshot
 
 
 class Subnet:
-    def __init__(self, provider: BlockchainProvider, netuid: int, block_number: int, mech_id: int = 0) -> None:
+    def __init__(self, provider: BlockchainProvider, netuid: int, block_number: int, mechid: int = 0) -> None:
         self.provider = provider
         self.block_number = block_number
         self.netuid = netuid
-        self.mech_id = mech_id
+        self.mechid = mechid
 
     @cached_property
     def hyperparameters(self) -> HyperparametersDTO:
@@ -38,18 +39,15 @@ class Subnet:
         return extractor.extract()
 
     @cached_property
-    def metagraph(self) -> MetagraphInfo | None:
+    def metagraph(self) -> FullSubnetSnapshot | None:
         """
-        Retrieve metagraph for this block.
+        Retrieve metagraph snapshot for this block.
 
         Returns:
-            Metagraph data for the block
+            FullSubnetSnapshot with all neuron data and metrics
 
         """
-        import bittensor  # type: ignore[import-untyped]  # noqa: PLC0415
-
-        subtensor = bittensor.subtensor()
-        extractor = MetagraphExtractor(subtensor, self.block_number, self.netuid, mech_id=self.mech_id)
+        extractor = MetagraphExtractor(self.provider, self.block_number, self.netuid, mechid=self.mechid)
         return extractor.extract()
 
     def info(self) -> dict[str, Any]:

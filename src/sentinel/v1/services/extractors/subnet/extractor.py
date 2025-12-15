@@ -1,5 +1,3 @@
-
-
 from typing import Any
 
 from sentinel.v1.providers.base import BlockchainProvider
@@ -18,5 +16,5 @@ class SubnetInfoExtractor:
         return {
             "netuid": self.netuid,
             "block_number": self.block_number,
-            "info": "Subnet information extracted from blockchain provider."
+            "info": "Subnet information extracted from blockchain provider.",
         }

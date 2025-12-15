@@ -132,6 +132,7 @@ class ExtrinsicDTO(BaseModel):
                         return None
         return None
 
+
 # TODO: Determine if this DTO is necessary or can be removed
 class SubnetInfoDTO(BaseModel):
     """Data transfer object for subnet information."""

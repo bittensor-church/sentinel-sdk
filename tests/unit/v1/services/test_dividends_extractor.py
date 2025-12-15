@@ -63,7 +63,7 @@ class TestDividendsExtractor:
 
         assert isinstance(result, DividendsResult)
         assert isinstance(result.records, list)
-        assert result.mech_id == 0
+        assert result.mechid == 0
 
     def test_extract_empty_metagraph(self, mock_subtensor: MagicMock):
         """Test that extract handles None metagraph."""

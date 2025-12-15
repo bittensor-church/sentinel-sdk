@@ -1,3 +1,6 @@
+# fmt: off
+# ruff: noqa
+# flake8: noqa
 EXTRINSICS_RESPONSE = [{'index': 0,
   'extrinsic_hash': b"e\xbd\x1c\xa0:K\xa2\xfc\x1d\x03\xc75U~\xbd\x88"
                     b"\x9c\xea\x85r\x05\xd1\xa3i/\x02s\xe9\xb7]H\xdc",

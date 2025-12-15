@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from bittensor.core.chain_data import SubnetHyperparameters
+    from bittensor.core.metagraph import Metagraph
 
 
 class BlockchainProvider(ABC):
@@ -30,7 +34,7 @@ class BlockchainProvider(ABC):
         ...
 
     @abstractmethod
-    def get_subnet_hyperparams(self, block_hash: str, netuid: int) -> Any:
+    def get_subnet_hyperparams(self, block_number: int, netuid: int) -> list[Any] | SubnetHyperparameters | None:
         """Get subnet hyperparameters for a given block hash and netuid."""
         ...
 
@@ -54,9 +58,7 @@ class BlockchainProvider(ABC):
         ...
 
     @abstractmethod
-    def get_extrinsic_status(
-        self, block_hash: str, extrinsic_index: int
-    ) -> tuple[str, dict[str, Any] | None]:
+    def get_extrinsic_status(self, block_hash: str, extrinsic_index: int) -> tuple[str, dict[str, Any] | None]:
         """Get the status of an extrinsic (Success/Failed/Unknown)."""
         ...
 
@@ -65,10 +67,20 @@ class BlockchainProvider(ABC):
         """Close any open connections."""
         ...
 
-    def __enter__(self) -> "BlockchainProvider":
+    def __enter__(self) -> BlockchainProvider:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exc_type: object | None, exc_val: object | None, exc_tb: object | None) -> None:
         """Context manager exit."""
         self.close()
+
+    @abstractmethod
+    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0) -> Metagraph | None:
+        """Get metagraph for a given netuid and block number."""
+        ...
+
+    @abstractmethod
+    def get_mechanism_count(self, netuid: int) -> int:
+        """Get the number of mechanisms for a given netuid."""
+        ...

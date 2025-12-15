@@ -192,7 +192,4 @@ def filter_timestamp_extrinsic(extrinsics: list[ExtrinsicDTO]) -> list[Extrinsic
         List containing only timestamp extrinsics
 
     """
-    return [
-        ext for ext in extrinsics
-        if ext.call.call_module == "Timestamp" and ext.call.call_function == "set"
-    ]
+    return [ext for ext in extrinsics if ext.call.call_module == "Timestamp" and ext.call.call_function == "set"]

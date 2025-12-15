@@ -67,3 +67,6 @@ class FakeBittensorProvider(BlockchainProvider):
     def create_mock_extrinsics(count: int = 1, **overrides: Any) -> list[dict[str, Any]]:
         """Create mock extrinsics using the ExtrinsicDTOFactory."""
         return [ExtrinsicDTOFactory.build(**overrides).model_dump() for _ in range(count)]
+
+    def get_metagraph_info(self, netuid: int, block_number: int, mechid: int = 0) -> Any:
+        return {}

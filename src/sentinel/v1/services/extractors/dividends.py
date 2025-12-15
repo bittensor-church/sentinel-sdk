@@ -23,7 +23,7 @@ class DividendsResult:
 
     records: list[DividendRecord]
     yuma3_enabled: bool
-    mech_id: int
+    mechid: int
 
 
 class DividendsExtractor:
@@ -37,17 +37,17 @@ class DividendsExtractor:
         4. normalize(dividends) so Σ_i dividends[i] = 1
     """
 
-    def __init__(self, subtensor: Subtensor, block_number: int, netuid: int, mech_id: int = 0) -> None:
+    def __init__(self, subtensor: Subtensor, block_number: int, netuid: int, mechid: int = 0) -> None:
         self.subtensor = subtensor
         self.block_number = block_number
         self.netuid = netuid
-        self.mech_id = mech_id
+        self.mechid = mechid
 
     def extract(self) -> DividendsResult:
         """Extract dividends for each identity in the subnet."""
-        metagraph = self.subtensor.metagraph(netuid=self.netuid, block=self.block_number, mechid=self.mech_id)
+        metagraph = self.subtensor.metagraph(netuid=self.netuid, block=self.block_number, mechid=self.mechid)
         if metagraph is None:
-            return DividendsResult(records=[], yuma3_enabled=True, mech_id=self.mech_id)
+            return DividendsResult(records=[], yuma3_enabled=True, mechid=self.mechid)
 
         # Check which Yuma version is enabled (yuma_version: 1, 2, or 3)
         hyperparams = self.subtensor.get_subnet_hyperparameters(netuid=self.netuid, block=self.block_number)
@@ -57,7 +57,7 @@ class DividendsExtractor:
 
         num_uids = len(metagraph.hotkeys)
         if num_uids == 0:
-            return DividendsResult(records=[], yuma3_enabled=yuma3_enabled, mech_id=self.mech_id)
+            return DividendsResult(records=[], yuma3_enabled=yuma3_enabled, mechid=self.mechid)
 
         # Get incentives from metagraph
         incentives = np.array(metagraph.incentive, dtype=np.float64)
@@ -105,7 +105,7 @@ class DividendsExtractor:
                 ),
             )
 
-        return DividendsResult(records=results, yuma3_enabled=yuma3_enabled, mech_id=self.mech_id)
+        return DividendsResult(records=results, yuma3_enabled=yuma3_enabled, mechid=self.mechid)
 
     def _sparse_to_dense(self, bonds_sparse: list, num_uids: int) -> np.ndarray:
         """Convert sparse bonds to dense matrix."""

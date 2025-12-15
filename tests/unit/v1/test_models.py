@@ -1,7 +1,8 @@
 from typing import Any
-from tests.fixtures.extrinsics import EXTRINSICS_RESPONSE
+
 from sentinel.v1.models.block import Block
 from sentinel.v1.providers.base import BlockchainProvider
+from tests.fixtures.extrinsics import EXTRINSICS_RESPONSE
 
 
 def block_with_extrinsics_and_events():

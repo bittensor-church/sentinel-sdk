@@ -1,4 +1,5 @@
 """Runtime upgrade event filtering utilities."""
+
 from sentinel.v1.dto import EventDTO
 
 # Runtime upgrade event identifiers
@@ -17,10 +18,7 @@ def is_runtime_upgrade_event(event: EventDTO) -> bool:
         True if the event indicates a runtime upgrade
 
     """
-    return (
-        event.module_id == RUNTIME_UPGRADE_MODULE
-        and event.event_id == RUNTIME_UPGRADE_EVENT
-    )
+    return event.module_id == RUNTIME_UPGRADE_MODULE and event.event_id == RUNTIME_UPGRADE_EVENT
 
 
 def filter_runtime_upgrade_events(events: list[EventDTO]) -> list[EventDTO]:
@@ -58,23 +56,19 @@ def get_runtime_upgrade_info(event: EventDTO, block_number: int) -> dict | None:
         "extrinsic_idx": event.extrinsic_idx,
     }
 
-# Usage in your block processing:
-from sentinel.v1.models.block import Block
 
+# def process_block_for_runtime_upgrades(block: Block) -> dict | None:
+#     """Check if a block contains a runtime upgrade."""
+#     upgrade_events = filter_runtime_upgrade_events(block.events)
 
-def process_block_for_runtime_upgrades(block: Block) -> dict | None:
-    """Check if a block contains a runtime upgrade."""
-    upgrade_events = filter_runtime_upgrade_events(block.events)
-
-    if upgrade_events:
-        # Runtime was upgraded in this block
-        return {
-            "block_number": block.block_number,
-            "block_hash": block.block_hash,
-            "upgrades": [
-                get_runtime_upgrade_info(e, block.block_number)
-                for e in upgrade_events
-            ],
-        }
-    return None
-# The System.CodeUpdated event is emitted when a runtime upgrade succeeds - it's the most reliable signal. You can then query the new spec_version from that block if needed.
+#     if upgrade_events:
+#         # Runtime was upgraded in this block
+#         return {
+#             "block_number": block.block_number,
+#             "block_hash": block.block_hash,
+#             "upgrades": [
+#                 get_runtime_upgrade_info(e, block.block_number)
+#                 for e in upgrade_events
+#             ],
+#         }
+#     return None

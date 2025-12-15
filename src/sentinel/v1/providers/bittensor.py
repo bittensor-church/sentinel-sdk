@@ -6,13 +6,14 @@ import os
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from bittensor.core.subtensor import Subtensor
 
 from sentinel.v1.providers.base import BlockchainProvider
 
 if TYPE_CHECKING:
-    from bittensor.core.chain_data import SubnetHyperparameters  # type: ignore[import-untyped]
-    from bittensor.core.subtensor import Subtensor  # type: ignore[import-untyped]
-    from bittensor.core.types import BlockInfo  # type: ignore[import-untyped]
+    from bittensor.core.chain_data import SubnetHyperparameters
+    from bittensor.core.metagraph import Metagraph
+    from bittensor.core.types import BlockInfo
 
 logger = structlog.get_logger()
 
@@ -37,8 +38,6 @@ class BittensorProvider(BlockchainProvider):
     def _get_subtensor(self) -> Subtensor:
         """Get or create a Subtensor instance."""
         if self._subtensor is None:
-            from bittensor.core.subtensor import Subtensor  # type: ignore[import-untyped]  # noqa: PLC0415
-
             self._subtensor = Subtensor(network=self._uri)
         return self._subtensor
 
@@ -48,7 +47,7 @@ class BittensorProvider(BlockchainProvider):
             self._subtensor.close()
             self._subtensor = None
 
-    def __enter__(self) -> "BittensorProvider":
+    def __enter__(self) -> BittensorProvider:
         """Context manager entry."""
         self._get_subtensor()
         return self
@@ -160,17 +159,19 @@ class BittensorProvider(BlockchainProvider):
             for idx, ext in enumerate(block_info.extrinsics):
                 serialized = ext.value_serialized
                 call = serialized.get("call", {})
-                extrinsics.append({
-                    "index": idx,
-                    "extrinsic_hash": getattr(ext, "extrinsic_hash", None),
-                    "call_module": call.get("call_module", ""),
-                    "call_function": call.get("call_function", ""),
-                    "call_args": call.get("call_args", []),
-                    "address": serialized.get("address"),
-                    "signature": serialized.get("signature"),
-                    "nonce": serialized.get("nonce"),
-                    "tip": serialized.get("tip"),
-                })
+                extrinsics.append(
+                    {
+                        "index": idx,
+                        "extrinsic_hash": getattr(ext, "extrinsic_hash", None),
+                        "call_module": call.get("call_module", ""),
+                        "call_function": call.get("call_function", ""),
+                        "call_args": call.get("call_args", []),
+                        "address": serialized.get("address"),
+                        "signature": serialized.get("signature"),
+                        "nonce": serialized.get("nonce"),
+                        "tip": serialized.get("tip"),
+                    }
+                )
             return extrinsics
         except Exception:
             logger.exception("Failed to get extrinsics", block_hash=block_hash)
@@ -229,9 +230,7 @@ class BittensorProvider(BlockchainProvider):
 
         return events_by_idx
 
-    def get_extrinsic_status(
-        self, block_hash: str, extrinsic_index: int
-    ) -> tuple[str, dict[str, Any] | None]:
+    def get_extrinsic_status(self, block_hash: str, extrinsic_index: int) -> tuple[str, dict[str, Any] | None]:
         """
         Get the status of an extrinsic.
 
@@ -259,13 +258,15 @@ class BittensorProvider(BlockchainProvider):
         return "Unknown", None
 
     def get_subnet_hyperparams(
-        self, block_hash: str, netuid: int
-    ) -> SubnetHyperparameters | None:  # type: ignore[name-defined]
+        self,
+        block_number: int,
+        netuid: int,
+    ) -> list[Any] | SubnetHyperparameters | None:
         """
         Retrieve hyperparameters for a subnet at a specific block.
 
         Args:
-            block_hash: The block hash to query at
+            block_number: The block number to query at
             netuid: The subnet identifier
 
         Returns:
@@ -276,15 +277,40 @@ class BittensorProvider(BlockchainProvider):
             subtensor = self._get_subtensor()
             return subtensor.get_subnet_hyperparameters(
                 netuid=netuid,
-                block_hash=block_hash,
+                block=block_number,
             )
         except Exception:
             logger.exception(
                 "Failed to fetch subnet hyperparams",
                 netuid=netuid,
-                block_hash=block_hash,
+                block=block_number,
             )
             return None
+
+    def get_metagraph(
+        self,
+        netuid: int,
+        block_number: int,
+        mechid: int = 0,
+    ) -> Metagraph | None:
+        """
+        Get metagraph for a given netuid and block number.
+        """
+        subtensor = self._get_subtensor()
+        return subtensor.metagraph(netuid=netuid, block=block_number, mechid=mechid, lite=False)
+
+    def get_mechanism_count(self, netuid: int) -> int:
+        """
+        Retrieve available mech IDs for a given netuid.
+
+        Args:
+            netuid: The subnet identifier
+        Returns:
+            List of mech IDs
+
+        """
+        subtensor = self._get_subtensor()
+        return subtensor.get_mechanism_count(netuid=netuid)
 
 
 def bittensor_provider(network_uri: str | None = None) -> BittensorProvider:
