@@ -131,3 +131,13 @@ class ExtrinsicDTO(BaseModel):
                     except ValueError:
                         return None
         return None
+
+# TODO: Determine if this DTO is necessary or can be removed
+class SubnetInfoDTO(BaseModel):
+    """Data transfer object for subnet information."""
+
+    model_config = ConfigDict(frozen=True)
+
+    netuid: int
+    block_number: int
+    info: dict | str | None = None

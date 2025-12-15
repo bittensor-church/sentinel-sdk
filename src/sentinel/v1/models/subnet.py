@@ -51,3 +51,14 @@ class Subnet:
         subtensor = bittensor.subtensor()
         extractor = MetagraphExtractor(subtensor, self.block_number, self.netuid, mech_id=self.mech_id)
         return extractor.extract()
+
+    def info(self) -> dict[str, Any]:
+        """
+        Get a summary of subnet information.
+
+        Returns:
+            Dictionary with subnet summary information
+
+        """
+        extractor = SubnetInfoExtractor(self.provider, self.netuid, self.block_number)
+        return extractor.extract()
