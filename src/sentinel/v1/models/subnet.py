@@ -14,7 +14,13 @@ if TYPE_CHECKING:
 
 
 class Subnet:
-    def __init__(self, provider: BlockchainProvider, netuid: int, block_number: int, mechid: int = 0) -> None:
+    def __init__(
+        self,
+        provider: BlockchainProvider,
+        netuid: int,
+        block_number: int,
+        mechid: int | None = None,
+    ) -> None:
         self.provider = provider
         self.block_number = block_number
         self.netuid = netuid
@@ -50,6 +56,7 @@ class Subnet:
         extractor = MetagraphExtractor(self.provider, self.block_number, self.netuid, mechid=self.mechid)
         return extractor.extract()
 
+    @cached_property
     def info(self) -> dict[str, Any]:
         """
         Get a summary of subnet information.

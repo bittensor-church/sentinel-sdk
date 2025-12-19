@@ -44,9 +44,9 @@ def subnet_callback(
         typer.Option("--network", "-n", help="Network URI to connect to."),
     ] = None,
     mechid: Annotated[
-        int,
+        int | None,
         typer.Option("--mech-id", "-m", help="Mechanism ID.", show_default=True),
-    ] = 0,
+    ] = None,
 ) -> None:
     """Subnet-related commands."""
     ctx.ensure_object(dict)
