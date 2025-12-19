@@ -405,7 +405,7 @@ class MetagraphExtractor:
                             mech_id=0,
                             bond=bond_val,
                             created_at=datetime.now(tz=UTC),
-                        )
+                        ),
                     )
 
         return bond_records if bond_records else None

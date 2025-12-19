@@ -317,6 +317,21 @@ class BittensorProvider(BlockchainProvider):
         subtensor = self._get_subtensor()
         return subtensor.get_mechanism_count(netuid=netuid)
 
+    def get_all_subnets_netuids(self, exclude_netuids: list[int] | None = None) -> list[int]:
+        """
+        Retrieve all subnet netuids from the Bittensor blockchain.
+
+        Returns:
+            List of subnet netuids
+
+        """
+        subtensor = self._get_subtensor()
+        return [
+            subnet.netuid
+            for subnet in subtensor.get_all_subnets_info()
+            if not exclude_netuids or subnet.netuid not in exclude_netuids
+        ]
+
 
 def bittensor_provider(network_uri: str | None = None) -> BittensorProvider:
     """
