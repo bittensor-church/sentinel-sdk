@@ -32,14 +32,9 @@ class HyperparamExtractor:
             HyperparametersDTO containing all extracted hyperparameters
 
         """
-        block_hash = self.provider.get_hash_by_block_number(self.block_number)
-        if not block_hash:
-            msg = f"Block hash not found for block number {self.block_number}"
-            raise ValueError(msg)
-
-        hyperparameters_json = self.provider.get_subnet_hyperparams(block_hash=block_hash, netuid=self.netuid)
+        hyperparameters_json = self.provider.get_subnet_hyperparams(block_number=self.block_number, netuid=self.netuid)
         if hyperparameters_json is None:
-            msg = f"Hyperparameters not found for block {block_hash} and netuid {self.netuid}"
+            msg = f"Hyperparameters not found for block {self.block_number} and netuid {self.netuid}"
             raise ValueError(msg)
 
         return HyperparametersDTO.model_validate(hyperparameters_json)

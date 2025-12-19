@@ -433,6 +433,7 @@ class Collateral(CollateralBase):
 
 # Tracking Models
 
+
 class MetagraphDumpBase(BaseModel):
     """Base schema for metagraph dump tracking."""
 

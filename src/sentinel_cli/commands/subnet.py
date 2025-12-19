@@ -10,7 +10,7 @@ from rich.table import Table
 
 if TYPE_CHECKING:
     from sentinel.v1.dto import HyperparametersDTO
-    from sentinel.v1.services.extractors.metagraph.dto import FullSubnetSnapshot, NeuronSnapshotFull
+    from sentinel.v1.services.extractors.metagraph.dto import FullSubnetSnapshot
 
 from sentinel.v1.models.subnet import Subnet
 from sentinel.v1.providers.bittensor import bittensor_provider
@@ -173,9 +173,7 @@ def metagraph(
             )
         else:
             console.print(_build_snapshot_dividends_table(snapshot))
-            total_dividends = sum(
-                sum(m.dividend for m in n.mechanisms) for n in snapshot.neurons
-            )
+            total_dividends = sum(sum(m.dividend for m in n.mechanisms) for n in snapshot.neurons)
             console.print()
             console.print(f"Total dividends: [bold]{total_dividends:.6f}[/bold]")
     elif is_json_output():

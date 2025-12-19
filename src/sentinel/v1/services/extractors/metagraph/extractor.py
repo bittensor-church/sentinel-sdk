@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import structlog
@@ -110,6 +110,7 @@ class MetagraphExtractor:
 
         Returns:
             FullSubnetSnapshot with all neuron data
+
         """
         # Use the first metagraph as the base (contains shared data)
         base_metagraph = metagraphs[0]
@@ -153,7 +154,7 @@ class MetagraphExtractor:
 
         # Get block timestamp from provider if available
         block_info = self.subtensor.get_block_info(block_number=block_number)
-        timestamp = datetime.now(tz=timezone.utc)
+        timestamp = datetime.now(tz=UTC)
         if block_info and hasattr(block_info, "timestamp"):
             timestamp = block_info.timestamp
 
@@ -175,7 +176,7 @@ class MetagraphExtractor:
                 owner_coldkey = Coldkey(
                     id=0,  # Placeholder - would come from DB
                     coldkey=metagraph.owner_coldkey,
-                    created_at=datetime.now(tz=timezone.utc),
+                    created_at=datetime.now(tz=UTC),
                 )
             owner_hotkey = HotkeyWithColdkey(
                 hotkey=metagraph.owner_hotkey,
@@ -186,7 +187,7 @@ class MetagraphExtractor:
             netuid=metagraph.netuid,
             name=subnet_name,
             owner_hotkey_id=None,
-            registered_at=datetime.now(tz=timezone.utc),  # Would come from chain
+            registered_at=datetime.now(tz=UTC),  # Would come from chain
             owner_hotkey=owner_hotkey,
         )
 
@@ -271,15 +272,17 @@ class MetagraphExtractor:
             coldkey=Coldkey(
                 id=0,
                 coldkey=coldkey,
-                created_at=datetime.now(tz=timezone.utc),
-            ) if coldkey else None,
+                created_at=datetime.now(tz=UTC),
+            )
+            if coldkey
+            else None,
         )
 
         subnet_dto = Subnet(
             netuid=metagraph.netuid,
             name=getattr(metagraph, "name", "") or "",
             owner_hotkey_id=None,
-            registered_at=datetime.now(tz=timezone.utc),
+            registered_at=datetime.now(tz=UTC),
         )
 
         neuron_dto = NeuronWithRelations(
@@ -371,7 +374,7 @@ class MetagraphExtractor:
                             block_number=self.block_number,
                             mech_id=0,
                             weight=weight_val,
-                            created_at=datetime.now(tz=timezone.utc),
+                            created_at=datetime.now(tz=UTC),
                         )
                     )
 
@@ -401,7 +404,7 @@ class MetagraphExtractor:
                             block_number=self.block_number,
                             mech_id=0,
                             bond=bond_val,
-                            created_at=datetime.now(tz=timezone.utc),
+                            created_at=datetime.now(tz=UTC),
                         )
                     )
 

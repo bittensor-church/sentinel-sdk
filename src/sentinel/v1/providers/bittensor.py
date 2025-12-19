@@ -41,6 +41,11 @@ class BittensorProvider(BlockchainProvider):
             self._subtensor = Subtensor(network=self._uri)
         return self._subtensor
 
+    @property
+    def substrate(self) -> Any:
+        """Get the substrate interface from subtensor."""
+        return self._get_subtensor().substrate
+
     def close(self) -> None:
         """Close the subtensor connection."""
         if self._subtensor:
