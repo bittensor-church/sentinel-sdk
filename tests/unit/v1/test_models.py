@@ -10,8 +10,6 @@ def block_with_extrinsics_and_events():
 
 
 class FakeBlockchainProvider(BlockchainProvider):
-    def get_hash_by_block_number(self, block_number: int) -> str | None:
-        return "hash_for_block_" + str(block_number)
 
     def get_subnet_hyperparams(self, block_number: int, netuid: int) -> Any:
         return {"param1": "value1", "param2": "value2"}

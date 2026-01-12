@@ -90,28 +90,6 @@ class BittensorProvider(BlockchainProvider):
             logger.exception("Failed to get block hash", block_number=block_number)
             return None
 
-    def get_hash_by_block_number(self, block_number: int) -> str | None:
-        """
-        Retrieve the block hash for a given block number.
-
-        Args:
-            block_number: The block number to retrieve the hash for
-
-        Returns:
-            The block hash as a string, or None if not found
-
-        Raises:
-            ConnectionError: If WebSocket connection to the network fails
-
-        """
-        try:
-            return self.get_block_hash(block_number)
-        except Exception as e:
-            if "'NoneType' object has no attribute 'send'" in str(e):
-                msg = f"WebSocket connection failed - unable to connect to Bittensor network at {self._uri}"
-                raise ConnectionError(msg) from e
-            raise
-
     def get_block_info(
         self,
         block_number: int | None = None,
@@ -175,7 +153,7 @@ class BittensorProvider(BlockchainProvider):
                         "signature": serialized.get("signature"),
                         "nonce": serialized.get("nonce"),
                         "tip": serialized.get("tip"),
-                    }
+                    },
                 )
             return extrinsics
         except Exception:
@@ -300,9 +278,81 @@ class BittensorProvider(BlockchainProvider):
     ) -> Metagraph | None:
         """
         Get metagraph for a given netuid and block number.
+
+        Note: For historical blocks, the bittensor SDK has a bug where it passes
+        incorrect parameters to the fallback get_metagraph API. This method
+        catches that error and uses a workaround for older blocks.
         """
         subtensor = self._get_subtensor()
-        return subtensor.metagraph(netuid=netuid, block=block_number, mechid=mechid, lite=False)
+        try:
+            return subtensor.metagraph(netuid=netuid, block=block_number, mechid=mechid, lite=False)
+        except ValueError as e:
+            if "Invalid type for list data" in str(e):
+                # Workaround for bittensor SDK bug with historical blocks
+                # The SDK incorrectly passes [[netuid]] instead of [netuid] to get_metagraph
+                logger.warning(
+                    "Bittensor SDK bug encountered, using legacy metagraph sync",
+                    netuid=netuid,
+                    block_number=block_number,
+                    error=str(e),
+                )
+                return self._get_metagraph_legacy(netuid, block_number, mechid)
+            raise
+
+    def _get_metagraph_legacy(
+        self,
+        netuid: int,
+        block_number: int,
+        mechid: int = 0,
+    ) -> Metagraph | None:
+        """
+        Legacy metagraph retrieval for historical blocks.
+
+        This bypasses the buggy _runtime_call_with_fallback in the SDK
+        by patching _apply_extra_info to be a no-op during sync.
+        """
+        from bittensor.core.metagraph import Metagraph
+
+        subtensor = self._get_subtensor()
+
+        # Create metagraph without syncing
+        metagraph = Metagraph(
+            netuid=netuid,
+            network=subtensor.network,
+            mechid=mechid,
+            sync=False,
+            subtensor=subtensor,
+        )
+
+        try:
+            # Patch _apply_extra_info to skip the buggy code path
+            original_apply_extra_info = metagraph._apply_extra_info
+
+            def patched_apply_extra_info(block: int) -> None:
+                # Skip the buggy get_metagraph_info call for historical blocks
+                logger.debug(
+                    "Skipping _apply_extra_info for historical block",
+                    block_number=block,
+                    netuid=netuid,
+                )
+
+            metagraph._apply_extra_info = patched_apply_extra_info  # type: ignore[method-assign]
+
+            # Now sync - this will populate the metagraph with neuron data
+            # but skip the buggy _apply_extra_info call
+            metagraph.sync(block=block_number, lite=False, subtensor=subtensor)
+
+            # Restore the original method
+            metagraph._apply_extra_info = original_apply_extra_info  # type: ignore[method-assign]
+
+            return metagraph
+        except Exception:
+            logger.exception(
+                "Failed to get legacy metagraph",
+                netuid=netuid,
+                block_number=block_number,
+            )
+            return None
 
     def get_mechanism_count(self, netuid: int) -> int:
         """

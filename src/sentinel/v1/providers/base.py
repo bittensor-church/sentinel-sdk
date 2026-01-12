@@ -19,11 +19,6 @@ class BlockchainProvider(ABC):
         ...
 
     @abstractmethod
-    def get_hash_by_block_number(self, block_number: int) -> str | None:
-        """Get block hash by block number (alias)."""
-        ...
-
-    @abstractmethod
     def get_events(self, block_hash: str) -> list[dict[str, Any]]:
         """Get serialized events for a block hash."""
         ...

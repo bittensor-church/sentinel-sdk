@@ -49,7 +49,7 @@ def resolve_block_hash(provider: BittensorProvider, block_number: int) -> str:
         typer.Exit: If block hash cannot be found
 
     """
-    block_hash = provider.get_hash_by_block_number(block_number)
+    block_hash = provider.get_block_hash(block_number)
     if not block_hash:
         output_error(f"Block hash not found for block {block_number}")
         raise typer.Exit(1)

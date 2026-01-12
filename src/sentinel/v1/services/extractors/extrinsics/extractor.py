@@ -65,7 +65,7 @@ class ExtrinsicExtractor:
             List of ExtrinsicDTO containing all extracted extrinsics
 
         """
-        block_hash = self.provider.get_hash_by_block_number(self.block_number)
+        block_hash = self.provider.get_block_hash(self.block_number)
         if not block_hash:
             msg = f"Block hash not found for block number {self.block_number}"
             raise ValueError(msg)

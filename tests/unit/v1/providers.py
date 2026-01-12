@@ -16,9 +16,6 @@ class FakeBittensorProvider(BlockchainProvider):
     def get_block_hash(self, block_number: int) -> str | None:
         return self.block_hashes.get(block_number)
 
-    def get_hash_by_block_number(self, block_number: int) -> str | None:
-        return self.block_hashes.get(block_number)
-
     def get_events(self, block_hash: str) -> list[dict[str, Any]]:
         return self.events.get(block_hash, [])
 
