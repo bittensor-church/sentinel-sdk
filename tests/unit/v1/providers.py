@@ -96,3 +96,7 @@ class FakeBittensorProvider(BlockchainProvider):
     def create_mock_extrinsics(count: int = 1, **overrides: Any) -> list[dict[str, Any]]:
         """Create mock extrinsics using the ExtrinsicDTOFactory."""
         return [ExtrinsicDTOFactory.build(**overrides).model_dump() for _ in range(count)]
+
+    def get_hash_by_block_number(self, block_number: int) -> str | None:
+        """Get block hash by block number."""
+        return self.block_hashes.get(block_number)
