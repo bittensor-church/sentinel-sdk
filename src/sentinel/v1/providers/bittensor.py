@@ -275,9 +275,17 @@ class BittensorProvider(BlockchainProvider):
         netuid: int,
         block_number: int,
         mechid: int = 0,
+        *,
+        lite: bool = False,
     ) -> Metagraph | None:
         """
         Get metagraph for a given netuid and block number.
+
+        Args:
+            netuid: The subnet identifier
+            block_number: The block number to query at
+            mechid: The mechanism ID (default: 0)
+            lite: If True, fetch lightweight metagraph without weights/bonds (default: False)
 
         Note: For historical blocks, the bittensor SDK has a bug where it passes
         incorrect parameters to the fallback get_metagraph API. This method
@@ -285,7 +293,7 @@ class BittensorProvider(BlockchainProvider):
         """
         subtensor = self._get_subtensor()
         try:
-            return subtensor.metagraph(netuid=netuid, block=block_number, mechid=mechid, lite=False)
+            return subtensor.metagraph(netuid=netuid, block=block_number, mechid=mechid, lite=lite)
         except ValueError as e:
             if "Invalid type for list data" in str(e):
                 # Workaround for bittensor SDK bug with historical blocks
@@ -296,7 +304,7 @@ class BittensorProvider(BlockchainProvider):
                     block_number=block_number,
                     error=str(e),
                 )
-                return self._get_metagraph_legacy(netuid, block_number, mechid)
+                return self._get_metagraph_legacy(netuid, block_number, mechid, lite=lite)
             raise
 
     def _get_metagraph_legacy(
@@ -304,12 +312,21 @@ class BittensorProvider(BlockchainProvider):
         netuid: int,
         block_number: int,
         mechid: int = 0,
+        *,
+        lite: bool = False,
     ) -> Metagraph | None:
         """
         Legacy metagraph retrieval for historical blocks.
 
         This bypasses the buggy _runtime_call_with_fallback in the SDK
         by patching _apply_extra_info to be a no-op during sync.
+
+        Args:
+            netuid: The subnet identifier
+            block_number: The block number to query at
+            mechid: The mechanism ID (default: 0)
+            lite: If True, fetch lightweight metagraph without weights/bonds (default: False)
+
         """
         from bittensor.core.metagraph import Metagraph
 
@@ -340,7 +357,7 @@ class BittensorProvider(BlockchainProvider):
 
             # Now sync - this will populate the metagraph with neuron data
             # but skip the buggy _apply_extra_info call
-            metagraph.sync(block=block_number, lite=False, subtensor=subtensor)
+            metagraph.sync(block=block_number, lite=lite, subtensor=subtensor)
 
             # Restore the original method
             metagraph._apply_extra_info = original_apply_extra_info  # type: ignore[method-assign]

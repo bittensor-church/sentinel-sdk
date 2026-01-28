@@ -20,11 +20,14 @@ class Subnet:
         netuid: int,
         block_number: int,
         mechid: int | None = None,
+        *,
+        lite: bool = False,
     ) -> None:
         self.provider = provider
         self.block_number = block_number
         self.netuid = netuid
         self.mechid = mechid
+        self.lite = lite
 
     @cached_property
     def hyperparameters(self) -> HyperparametersDTO:
@@ -53,7 +56,9 @@ class Subnet:
             FullSubnetSnapshot with all neuron data and metrics
 
         """
-        extractor = MetagraphExtractor(self.provider, self.block_number, self.netuid, mechid=self.mechid)
+        extractor = MetagraphExtractor(
+            self.provider, self.block_number, self.netuid, mechid=self.mechid, lite=self.lite
+        )
         return extractor.extract()
 
     @cached_property

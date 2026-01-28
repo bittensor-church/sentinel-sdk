@@ -32,11 +32,14 @@ class MetagraphExtractor:
         block_number: BlockNumber,
         netuid: int,
         mechid: int | None = None,
+        *,
+        lite: bool = False,
     ) -> None:
         self.subtensor = subtensor
         self.block_number = block_number
         self.netuid = netuid
         self.mechid = mechid
+        self.lite = lite
 
     def extract(self) -> FullSubnetSnapshot | None:
         """
@@ -79,6 +82,7 @@ class MetagraphExtractor:
             netuid=self.netuid,
             block_number=self.block_number,
             mechid=mechid,
+            lite=self.lite,
         )
         if not metagraph:
             logger.warning(

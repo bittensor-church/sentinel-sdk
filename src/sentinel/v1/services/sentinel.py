@@ -33,7 +33,9 @@ class SentinelService:
         """
         return Block(self.provider, block_number, netuid)
 
-    def ingest_subnet(self, netuid: int, block_number: int, mechid: int | None = None) -> Subnet:
+    def ingest_subnet(
+        self, netuid: int, block_number: int, mechid: int | None = None, *, lite: bool = False
+    ) -> Subnet:
         """
         Ingest a subnet-specific block and return a lazy-loaded Block instance.
 
@@ -44,12 +46,13 @@ class SentinelService:
             netuid: The subnet ID for hyperparameter queries
             block_number: The blockchain block number to ingest
             mechid: The mechanism ID for the subnet (default is 0)
+            lite: If True, fetch lightweight metagraph without weights/bonds (default: False)
 
         Returns:
             Block instance with lazy-loaded properties
 
         """
-        return Subnet(self.provider, netuid, block_number, mechid=mechid)
+        return Subnet(self.provider, netuid, block_number, mechid=mechid, lite=lite)
 
 
 def sentinel_service(provider: BlockchainProvider) -> SentinelService:
