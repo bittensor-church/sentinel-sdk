@@ -71,16 +71,16 @@ class BlockchainProvider(ABC):
         self.close()
 
     @abstractmethod
-    def get_metagraph(
-        self, netuid: int, block_number: int, mechid: int = 0, *, lite: bool = False
-    ) -> Metagraph | None:
-        """Get metagraph for a given netuid and block number.
+    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0, *, lite: bool = False) -> Metagraph | None:
+        """
+        Get metagraph for a given netuid and block number.
 
         Args:
             netuid: The subnet identifier
             block_number: The block number to query at
             mechid: The mechanism ID (default: 0)
             lite: If True, fetch lightweight metagraph without weights/bonds (default: False)
+
         """
         ...
 

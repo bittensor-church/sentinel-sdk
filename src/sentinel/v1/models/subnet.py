@@ -22,12 +22,14 @@ class Subnet:
         mechid: int | None = None,
         *,
         lite: bool = False,
+        skip_timestamp: bool = False,
     ) -> None:
         self.provider = provider
         self.block_number = block_number
         self.netuid = netuid
         self.mechid = mechid
         self.lite = lite
+        self.skip_timestamp = skip_timestamp
 
     @cached_property
     def hyperparameters(self) -> HyperparametersDTO:
@@ -57,7 +59,12 @@ class Subnet:
 
         """
         extractor = MetagraphExtractor(
-            self.provider, self.block_number, self.netuid, mechid=self.mechid, lite=self.lite
+            self.provider,
+            self.block_number,
+            self.netuid,
+            mechid=self.mechid,
+            lite=self.lite,
+            skip_timestamp=self.skip_timestamp,
         )
         return extractor.extract()
 

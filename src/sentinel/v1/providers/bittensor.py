@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 DEFAULT_NETWORK_URI = "wss://entrypoint-finney.opentensor.ai:443"
+ARCHIVE_NODE_URI = "wss://archive.chain.opentensor.ai:443"
 BITTENSOR_SS58_FORMAT = 42
 
 
@@ -290,6 +291,7 @@ class BittensorProvider(BlockchainProvider):
         Note: For historical blocks, the bittensor SDK has a bug where it passes
         incorrect parameters to the fallback get_metagraph API. This method
         catches that error and uses a workaround for older blocks.
+
         """
         subtensor = self._get_subtensor()
         try:

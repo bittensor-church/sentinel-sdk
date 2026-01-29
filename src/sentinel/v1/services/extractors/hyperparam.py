@@ -40,5 +40,5 @@ class HyperparamExtractor:
             raise ValueError(msg)
 
         # Convert bittensor SubnetHyperparameters dataclass to dict for Pydantic validation
-        hyperparameters_dict = asdict(hyperparameters)
+        hyperparameters_dict = asdict(hyperparameters)  # type: ignore[arg-type]
         return HyperparametersDTO.model_validate(hyperparameters_dict)

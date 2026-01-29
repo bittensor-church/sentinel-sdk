@@ -54,7 +54,7 @@ class FakeBittensorProvider(BlockchainProvider):
         """Close any open connections."""
         pass
 
-    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0) -> Any:
+    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0, *, lite: bool = False) -> Any:
         """Get metagraph for a given netuid and block number."""
         return None
 

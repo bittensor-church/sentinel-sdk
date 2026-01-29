@@ -34,12 +34,14 @@ class MetagraphExtractor:
         mechid: int | None = None,
         *,
         lite: bool = False,
+        skip_timestamp: bool = False,
     ) -> None:
         self.subtensor = subtensor
         self.block_number = block_number
         self.netuid = netuid
         self.mechid = mechid
         self.lite = lite
+        self.skip_timestamp = skip_timestamp
 
     def extract(self) -> FullSubnetSnapshot | None:
         """
@@ -156,11 +158,12 @@ class MetagraphExtractor:
         """Build Block DTO from metagraph."""
         block_number = int(metagraph.block.item()) if hasattr(metagraph.block, "item") else int(metagraph.block)
 
-        # Get block timestamp from provider if available
-        block_info = self.subtensor.get_block_info(block_number=block_number)
         timestamp = datetime.now(tz=UTC)
-        if block_info and hasattr(block_info, "timestamp"):
-            timestamp = block_info.timestamp
+        if not self.skip_timestamp:
+            # Get block timestamp from provider (adds extra RPC call)
+            block_info = self.subtensor.get_block_info(block_number=block_number)
+            if block_info and hasattr(block_info, "timestamp"):
+                timestamp = block_info.timestamp
 
         return Block(
             block_number=block_number,

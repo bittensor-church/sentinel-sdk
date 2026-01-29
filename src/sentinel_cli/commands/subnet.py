@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Annotated
 
 import bittensor
@@ -12,8 +13,10 @@ if TYPE_CHECKING:
     from sentinel.v1.dto import HyperparametersDTO
     from sentinel.v1.services.extractors.metagraph.dto import FullSubnetSnapshot
 
+from async_substrate_interface.errors import StateDiscardedError  # type: ignore[import-untyped]
+
 from sentinel.v1.models.subnet import Subnet
-from sentinel.v1.providers.bittensor import bittensor_provider
+from sentinel.v1.providers.bittensor import ARCHIVE_NODE_URI, bittensor_provider
 from sentinel.v1.services.extractors.dividends import DividendRecord, DividendsExtractor
 from sentinel_cli.blocks import resolve_block_number
 from sentinel_cli.output import console, is_json_output, is_raw_output, output_json
@@ -47,6 +50,10 @@ def subnet_callback(
         int | None,
         typer.Option("--mech-id", "-m", help="Mechanism ID.", show_default=True),
     ] = None,
+    lite: Annotated[
+        bool,
+        typer.Option("--lite", "-l", help="Use lite metagraph (excludes weights and bonds)."),
+    ] = False,
 ) -> None:
     """Subnet-related commands."""
     ctx.ensure_object(dict)
@@ -54,6 +61,13 @@ def subnet_callback(
     ctx.obj["block_number"] = block_number
     ctx.obj["network"] = network
     ctx.obj["mechid"] = mechid
+    ctx.obj["lite"] = lite
+
+
+def _print_elapsed_time(start_time: float) -> None:
+    """Print elapsed time since start_time."""
+    elapsed = time.perf_counter() - start_time
+    console.print(f"\n[dim]Completed in {elapsed:.2f}s[/dim]")
 
 
 def _build_snapshot_dividends_table(snapshot: FullSubnetSnapshot) -> Table:
@@ -131,16 +145,34 @@ def metagraph(
     ] = None,
 ) -> None:
     """Display metagraph information about a subnet at a specific block."""
+    start_time = time.perf_counter()
+
     netuid = ctx.obj["netuid"]
     block_number = ctx.obj["block_number"]
     network = ctx.obj["network"]
     mechid = ctx.obj["mechid"]
+    lite = ctx.obj["lite"]
 
     provider = bittensor_provider(network_uri=network)
     resolved_block = resolve_block_number(provider, block_number)
 
-    subnet_instance = Subnet(provider, netuid, resolved_block, mechid)
-    snapshot = subnet_instance.metagraph
+    try:
+        subnet_instance = Subnet(provider, netuid, resolved_block, mechid, lite=lite)
+        snapshot = subnet_instance.metagraph
+    except StateDiscardedError:
+        console.print(
+            f"[red]Error:[/red] Block [cyan]{resolved_block}[/cyan] is too old and its state has been discarded.",
+        )
+        console.print()
+        console.print("To query historical blocks, use an archive node:")
+        console.print(f"  [dim]--network {ARCHIVE_NODE_URI}[/dim]")
+        console.print()
+        console.print("Example:")
+        console.print(
+            f"  [dim]sentinel subnet --netuid {netuid} --block {resolved_block} "
+            f"--network {ARCHIVE_NODE_URI} metagraph[/dim]",
+        )
+        raise typer.Exit(1) from None
 
     if not snapshot:
         console.print("[red]Error:[/red] Could not retrieve metagraph data.")
@@ -229,6 +261,8 @@ def metagraph(
         console.print()
         console.print(f"Total stake: [bold]{snapshot.total_stake:.4f}[/bold] TAO")
 
+    _print_elapsed_time(start_time)
+
 
 def _build_manual_dividends_table(records: list[DividendRecord]) -> Table:
     """Build a table displaying manually calculated dividends."""
@@ -263,6 +297,8 @@ def dividends_manual(
     ctx: typer.Context,
 ) -> None:
     """Calculate dividends manually using Yuma3 formula from bonds and incentives."""
+    start_time = time.perf_counter()
+
     netuid = ctx.obj["netuid"]
     block_number = ctx.obj["block_number"]
     network = ctx.obj["network"]
@@ -291,6 +327,8 @@ def dividends_manual(
     console.print()
     console.print(f"Total dividends: [bold]{total_dividends:.6f}[/bold]")
 
+    _print_elapsed_time(start_time)
+
 
 def _build_hyperparams_table(hyperparams_data: HyperparametersDTO) -> Table:
     """Build a table displaying hyperparameters."""
@@ -309,6 +347,8 @@ def hyperparams(
     ctx: typer.Context,
 ) -> None:
     """Read hyperparameters for a subnet at a specific block."""
+    start_time = time.perf_counter()
+
     netuid = ctx.obj["netuid"]
     block_number = ctx.obj["block_number"]
     network = ctx.obj["network"]
@@ -332,3 +372,5 @@ def hyperparams(
         console.print(f"Subnet: [cyan]{netuid}[/cyan]")
         console.print()
         console.print(_build_hyperparams_table(hyperparams_data))
+
+    _print_elapsed_time(start_time)

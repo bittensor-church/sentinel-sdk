@@ -32,6 +32,21 @@ for extrinsic in block.extrinsics:
     print(extrinsic)
 ```
 
+## Pylon integration
+
+Sentinel can be easily integrated with Pylon for advanced data processing and analysis.
+
+1. Run a Pylon instance (see [Pylon documentation](https://github.com/bittensor-church/bittensor-pylon/)).
+2. Specify the Pylon integration when creating the Sentinel service:
+
+```python
+from sentinel.v1.integrations.pylon import pylon_integration
+
+integration = pylon_integration(pylon_url="http://localhost:8000")
+service = sentinel_service(provider, integrations=[integration])
+```
+
+
 ### CLI
 
 ```

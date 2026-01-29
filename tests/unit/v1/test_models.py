@@ -37,7 +37,7 @@ class FakeBlockchainProvider(BlockchainProvider):
     def get_events(self, block_hash: str) -> list[dict]:
         return []
 
-    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0) -> Any:
+    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0, *, lite: bool = False) -> Any:
         return None
 
     def get_mechanism_count(self, netuid: int) -> int:

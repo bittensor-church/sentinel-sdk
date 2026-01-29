@@ -1,0 +1,10 @@
+services:
+  pylon:
+    image: backenddevelopersltd/bittensor-pylon:latest
+    platform: linux/amd64
+    env_file:
+      - .env
+    volumes:
+      - ~/.bittensor/wallets:/root/.bittensor/wallets
+    ports:
+      - "8090:8000"
