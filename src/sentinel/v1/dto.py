@@ -72,7 +72,7 @@ class EventDataDTO(BaseModel):
     event_index: str | int
     module_id: str
     event_id: str
-    attributes: dict | tuple | list | str | None = None
+    attributes: dict | tuple | list | str | int | None = None
 
 
 class EventDTO(BaseModel):
@@ -86,7 +86,7 @@ class EventDTO(BaseModel):
     event_index: str | int
     module_id: str
     event_id: str
-    attributes: dict | tuple | list | str | None = None
+    attributes: dict | tuple | list | str | int | None = None
     topics: list | None = None
 
 
