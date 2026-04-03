@@ -2,11 +2,11 @@
 
 import typer
 
-from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.providers.base import BlockchainProvider
 from sentinel_cli.output import console, is_json_output, output_error
 
 
-def resolve_block_number(provider: BittensorProvider, block_number: int | None) -> int:
+def resolve_block_number(provider: BlockchainProvider, block_number: int | None) -> int:
     """
     Resolve block number, using current block if not specified.
 
@@ -34,7 +34,7 @@ def resolve_block_number(provider: BittensorProvider, block_number: int | None) 
     return current
 
 
-def resolve_block_hash(provider: BittensorProvider, block_number: int) -> str:
+def resolve_block_hash(provider: BlockchainProvider, block_number: int) -> str:
     """
     Resolve block hash for the given block number.
 

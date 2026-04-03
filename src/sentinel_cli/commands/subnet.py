@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, NoReturn
 
 import bittensor
 import typer
@@ -14,12 +14,18 @@ if TYPE_CHECKING:
     from sentinel.v1.services.extractors.metagraph.dto import FullSubnetSnapshot
 
 from async_substrate_interface.errors import StateDiscardedError  # type: ignore[import-untyped]
+from pylon_client.artanis import BasePylonException
 
 from sentinel.v1.models.subnet import Subnet
+from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.providers.bittensor import ARCHIVE_NODE_URI, bittensor_provider
+from sentinel.v1.providers.pylon import pylon_provider
 from sentinel.v1.services.extractors.dividends import DividendRecord, DividendsExtractor
 from sentinel_cli.blocks import resolve_block_number
 from sentinel_cli.output import console, is_json_output, is_raw_output, output_json
+
+PROVIDER_BITTENSOR = "bittensor"
+PROVIDER_PYLON = "pylon"
 
 HOTKEY_DISPLAY_LENGTH = 16
 
@@ -29,6 +35,26 @@ subnet = typer.Typer(
     help="Subnet-related commands.",
     no_args_is_help=True,
 )
+
+
+def _handle_pylon_error(exc: BasePylonException) -> NoReturn:
+    """Display a clean error message for Pylon connection/request failures."""
+    cause = exc.__cause__
+    if cause:
+        console.print(f"[red]Error:[/red] Failed to connect to Pylon: {cause}")
+    else:
+        console.print(f"[red]Error:[/red] Pylon request failed: {exc}")
+    console.print()
+    console.print("Make sure the Pylon service is running and the URL is correct.")
+    console.print("  [dim]--network http://localhost:8090[/dim]")
+    raise typer.Exit(1) from None
+
+
+def _create_provider(provider_type: str, network: str | None) -> BlockchainProvider:
+    """Create the appropriate blockchain provider based on type."""
+    if provider_type == PROVIDER_PYLON:
+        return pylon_provider(url=network)
+    return bittensor_provider(network_uri=network)
 
 
 @subnet.callback()
@@ -54,6 +80,10 @@ def subnet_callback(
         bool,
         typer.Option("--lite", "-l", help="Use lite metagraph (excludes weights and bonds)."),
     ] = False,
+    provider: Annotated[
+        str,
+        typer.Option("--provider", "-p", help="Blockchain provider to use (bittensor or pylon)."),
+    ] = PROVIDER_BITTENSOR,
 ) -> None:
     """Subnet-related commands."""
     ctx.ensure_object(dict)
@@ -62,6 +92,7 @@ def subnet_callback(
     ctx.obj["network"] = network
     ctx.obj["mechid"] = mechid
     ctx.obj["lite"] = lite
+    ctx.obj["provider"] = _create_provider(provider, network)
 
 
 def _print_elapsed_time(start_time: float) -> None:
@@ -149,16 +180,20 @@ def metagraph(
 
     netuid = ctx.obj["netuid"]
     block_number = ctx.obj["block_number"]
-    network = ctx.obj["network"]
     mechid = ctx.obj["mechid"]
     lite = ctx.obj["lite"]
+    provider: BlockchainProvider = ctx.obj["provider"]
 
-    provider = bittensor_provider(network_uri=network)
-    resolved_block = resolve_block_number(provider, block_number)
+    try:
+        resolved_block = resolve_block_number(provider, block_number)
+    except BasePylonException as e:
+        _handle_pylon_error(e)
 
     try:
         subnet_instance = Subnet(provider, netuid, resolved_block, mechid, lite=lite)
         snapshot = subnet_instance.metagraph
+    except BasePylonException as e:
+        _handle_pylon_error(e)
     except StateDiscardedError:
         console.print(
             f"[red]Error:[/red] Block [cyan]{resolved_block}[/cyan] is too old and its state has been discarded.",
@@ -303,9 +338,12 @@ def dividends_manual(
     block_number = ctx.obj["block_number"]
     network = ctx.obj["network"]
     mechid = ctx.obj["mechid"]
+    provider: BlockchainProvider = ctx.obj["provider"]
 
-    provider = bittensor_provider(network_uri=network)
-    resolved_block = resolve_block_number(provider, block_number)
+    try:
+        resolved_block = resolve_block_number(provider, block_number)
+    except BasePylonException as e:
+        _handle_pylon_error(e)
 
     subtensor = bittensor.Subtensor(network=network)
     extractor = DividendsExtractor(subtensor, resolved_block, netuid, mechid)
@@ -351,10 +389,12 @@ def hyperparams(
 
     netuid = ctx.obj["netuid"]
     block_number = ctx.obj["block_number"]
-    network = ctx.obj["network"]
+    provider: BlockchainProvider = ctx.obj["provider"]
 
-    provider = bittensor_provider(network_uri=network)
-    resolved_block = resolve_block_number(provider, block_number)
+    try:
+        resolved_block = resolve_block_number(provider, block_number)
+    except BasePylonException as e:
+        _handle_pylon_error(e)
 
     subnet_instance = Subnet(provider, netuid, resolved_block)
     hyperparams_data = subnet_instance.hyperparameters

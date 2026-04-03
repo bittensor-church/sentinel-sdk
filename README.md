@@ -1,4 +1,4 @@
-# sentinel
+# Sentinel sdk
 &nbsp;[![Continuous Integration](https://github.com/bittensor-church/sentinel/workflows/Continuous%20Integration/badge.svg)](https://github.com/bittensor-church/sentinel/actions?query=workflow%3A%22Continuous+Integration%22)&nbsp;[![License](https://img.shields.io/pypi/l/bittensor-sentinel.svg?label=License)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![python versions](https://img.shields.io/pypi/pyversions/bittensor-sentinel.svg?label=python%20versions)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![PyPI version](https://img.shields.io/pypi/v/bittensor-sentinel.svg?label=PyPI%20version)](https://pypi.python.org/pypi/bittensor-sentinel)
 
 Sentinel is a blockchain data extraction and monitoring tool designed to work with the Bittensor network.
@@ -34,20 +34,56 @@ for extrinsic in block.extrinsics:
 
 ## Pylon integration
 
-Sentinel can be easily integrated with Pylon for advanced data processing and analysis.
+Sentinel supports [Pylon](https://github.com/bittensor-church/bittensor-pylon/) as an alternative blockchain provider. Pylon is a caching proxy for the Bittensor network that provides faster neuron and validator queries.
+
+### Setup
 
 1. Run a Pylon instance (see [Pylon documentation](https://github.com/bittensor-church/bittensor-pylon/)).
-2. Specify the Pylon integration when creating the Sentinel service:
+2. Set the `PYLON_URL` environment variable (optional — defaults to `http://localhost:8000`):
+   ```bash
+   export PYLON_URL="http://your-pylon-instance:8090"
+   export PYLON_OPEN_ACCESS_TOKEN="your-token"  # optional, only if Pylon requires authentication
+   ```
+
+### As a library
+
+Use `PylonProvider` as a drop-in replacement for `BittensorProvider`:
 
 ```python
-from sentinel.v1.integrations.pylon import pylon_integration
+from sentinel.v1.providers.pylon import pylon_provider
 
-integration = pylon_integration(pylon_url="http://localhost:8000")
-service = sentinel_service(provider, integrations=[integration])
+# Uses PYLON_URL env var, or pass url directly
+provider = pylon_provider(url="http://localhost:8090")
+
+# Fetch metagraph (constructed from Pylon neuron data, always lite mode)
+metagraph = provider.get_metagraph(netuid=1, block_number=100000, lite=True)
+
+# Pylon-specific methods (not in the base BlockchainProvider interface)
+neurons = provider.get_neurons(netuid=1, block_number=100000)
+validators = provider.get_validators(netuid=1, block_number=100000)
+latest = provider.get_latest_neurons(netuid=1)
 ```
 
+> [!NOTE]
+> PylonProvider does not support block events, extrinsics listing, or subnet hyperparameters.
+> These methods raise `NotImplementedError`. Use `BittensorProvider` for full chain access.
 
 ### CLI
+
+Use the `--provider pylon` flag with subnet commands:
+
+```bash
+# Query metagraph via Pylon
+sentinel subnet --netuid 1 --provider pylon metagraph
+
+# With a custom Pylon URL
+sentinel subnet --netuid 1 --provider pylon --network http://my-pylon:8090 metagraph
+
+# JSON output
+sentinel subnet --netuid 1 --provider pylon -f json metagraph
+```
+
+### CLI (general)
 
 ```
 $ sentinel --help
