@@ -9,6 +9,13 @@ upcoming release can be found in [changelog.d](changelog.d).
 
 <!-- towncrier release notes start -->
 
+## [0.2.2](https://github.com/bittensor-church/sentinel/releases/tag/v0.2.2) - 2026-04-08
+
+### Added
+
+- `sentinel.v1.testing` module with DTO factories, extrinsic presets (hyperparameter, coldkey swap, register network), and `FakeBlockchainProvider` for writing tests without a live Bittensor node. Install with `pip install bittensor-sentinel[testing]`.
+
+
 ## [0.2.1](https://github.com/bittensor-church/sentinel/releases/tag/v0.2.1) - 2026-04-03
 
 - Pylon integration. Available in SDK and CLI
