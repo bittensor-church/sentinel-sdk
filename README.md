@@ -1,11 +1,15 @@
-# Sentinel sdk
+# Sentinel SDK
 &nbsp;[![Continuous Integration](https://github.com/bittensor-church/sentinel/workflows/Continuous%20Integration/badge.svg)](https://github.com/bittensor-church/sentinel/actions?query=workflow%3A%22Continuous+Integration%22)&nbsp;[![License](https://img.shields.io/pypi/l/bittensor-sentinel.svg?label=License)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![python versions](https://img.shields.io/pypi/pyversions/bittensor-sentinel.svg?label=python%20versions)](https://pypi.python.org/pypi/bittensor-sentinel)&nbsp;[![PyPI version](https://img.shields.io/pypi/v/bittensor-sentinel.svg?label=PyPI%20version)](https://pypi.python.org/pypi/bittensor-sentinel)
 
-Sentinel is a blockchain data extraction and monitoring tool designed to work with the Bittensor network.
+Sentinel SDK is a Python toolkit for extracting and working with Bittensor blockchain data. It provides a typed, versioned API for reading chain state — extrinsics, events, hyperparameters, metagraph snapshots, and subnet info — without dealing with raw substrate calls.
 
 Features:
-- Extract extrinsics, events, and hyperparameters from Bittensor blockchain.
-- Provides both a Python library and a command-line interface (CLI) for ease of use.
+
+- **Blockchain data extraction** — extrinsics, events, hyperparameters, metagraph snapshots, and subnet info with typed Pydantic DTOs
+- **Pluggable providers** — connect via the Bittensor SDK directly or through [Pylon](https://github.com/bittensor-church/bittensor-pylon/) caching proxy
+- **CLI** — query chain data from the terminal (extrinsics, events, hyperparameters, metagraph)
+- **Testing utilities** — factories and a fake provider for writing tests without a live node (see [docs/testing.md](docs/testing.md))
+- **Versioned API** — uses [ApiVer](https://www.youtube.com/watch?v=FgcoAKchPjk) (`sentinel.v1`) to guarantee backwards compatibility
 
 ## Installation
 
@@ -22,30 +26,49 @@ pip install bittensor-sentinel
 
 ```python
 from sentinel.v1.providers.bittensor import bittensor_provider
-from sentinel.v1.services.extractors.extrinsics import get_hyperparam_extrinsics
 from sentinel.v1.services.sentinel import sentinel_service
 
 provider = bittensor_provider()
 service = sentinel_service(provider)
-block = service.ingest_block(resolved_block)
+
+# Extract extrinsics and events from a block
+block = service.ingest_block(block_number=4_000_000)
 for extrinsic in block.extrinsics:
-    print(extrinsic)
+    print(extrinsic.call.call_module, extrinsic.call.call_function)
+
+# Extract metagraph snapshot for a subnet
+subnet = service.ingest_subnet(netuid=1, block_number=4_000_000)
+snapshot = subnet.metagraph
+for neuron in snapshot.neurons:
+    print(neuron.uid, neuron.neuron.hotkey.hotkey)
 ```
 
-## Pylon integration
+### CLI
 
-Sentinel supports [Pylon](https://github.com/bittensor-church/bittensor-pylon/) as an alternative blockchain provider. Pylon is a caching proxy for the Bittensor network that provides faster neuron and validator queries.
+```bash
+# Read extrinsics from a block
+sentinel extrinsics --block 4000000
 
-### Setup
+# Read events from a block
+sentinel events --block 4000000
+
+# Query subnet metagraph
+sentinel subnet --netuid 1 metagraph
+
+# JSON output
+sentinel -f json extrinsics --block 4000000
+```
+
+### Pylon provider
+
+[Pylon](https://github.com/bittensor-church/bittensor-pylon/) is a caching proxy for the Bittensor network that provides faster neuron and validator queries. Sentinel supports it as an alternative provider.
 
 1. Run a Pylon instance (see [Pylon documentation](https://github.com/bittensor-church/bittensor-pylon/)).
-2. Set the `PYLON_URL` environment variable (optional — defaults to `http://localhost:8000`):
+2. Set the environment variables (optional — `PYLON_URL` defaults to `http://localhost:8000`):
    ```bash
    export PYLON_URL="http://your-pylon-instance:8090"
-   export PYLON_OPEN_ACCESS_TOKEN="your-token"  # optional, only if Pylon requires authentication
+   export PYLON_OPEN_ACCESS_TOKEN="your-token"  # only if Pylon requires authentication
    ```
-
-### As a library
 
 Use `PylonProvider` as a drop-in replacement for `BittensorProvider`:
 
@@ -68,48 +91,12 @@ latest = provider.get_latest_neurons(netuid=1)
 > PylonProvider does not support block events, extrinsics listing, or subnet hyperparameters.
 > These methods raise `NotImplementedError`. Use `BittensorProvider` for full chain access.
 
-### CLI
-
-Use the `--provider pylon` flag with subnet commands:
+Or via CLI with the `--provider pylon` flag:
 
 ```bash
-# Query metagraph via Pylon
 sentinel subnet --netuid 1 --provider pylon metagraph
-
-# With a custom Pylon URL
 sentinel subnet --netuid 1 --provider pylon --network http://my-pylon:8090 metagraph
-
-# JSON output
-sentinel subnet --netuid 1 --provider pylon -f json metagraph
 ```
-
-### CLI (general)
-
-```
-$ sentinel --help
-
-
-Usage: sentinel [OPTIONS] COMMAND [ARGS]...
-
-Sentinel CLI - Blockchain data extraction and monitoring tool.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --format              -f      [table|json]  Output format. [default: table]  │
-│ --install-completion                        Install completion for the       │
-│                                             current shell.                   │
-│ --show-completion                           Show completion for the current  │
-│                                             shell, to copy it or customize   │
-│                                             the installation.                │
-│ --help                                      Show this message and exit.      │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ extrinsics    Read extrinsics from a blockchain block.                       │
-│ events        Read events from a blockchain block.                           │
-│ hyperparams   Read hyperparameters for a subnet at a specific block.         │
-│ block         Block-related commands.                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
 
 ## Versioning
 
@@ -121,15 +108,12 @@ This means, the public API of this package is explicitly versioned, e.g. `sentin
 
 Internal packages, i.e. prefixed by `sentinel._` do not share these guarantees and may change in a backwards-incompatible way at any time even in patch releases.
 
-
 ## Development
-
 
 Pre-requisites:
 - [uv](https://docs.astral.sh/uv/)
 - [nox](https://nox.thea.codes/en/stable/)
 - [docker](https://www.docker.com/) and [docker compose plugin](https://docs.docker.com/compose/)
-
 
 Ideally, you should run `nox -t format lint` before every commit to ensure that the code is properly formatted and linted.
 Before submitting a PR, make sure that tests pass as well, you can do so using:

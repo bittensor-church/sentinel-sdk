@@ -152,44 +152,50 @@ class PylonProvider(BlockchainProvider):
         block_number: int,
         mechid: int,
     ) -> Metagraph:
+        import dataclasses
+
         from bittensor.core.chain_data import AxonInfo, NeuronInfoLite
         from bittensor.core.metagraph import Metagraph
         from bittensor.utils.balance import Balance
 
+        neuron_fields = {f.name for f in dataclasses.fields(NeuronInfoLite)}
+
         neurons_lite = []
         for hotkey, neuron in sorted(response.neurons.items(), key=lambda item: item[1].uid):
-            neurons_lite.append(
-                NeuronInfoLite(
-                    hotkey=str(hotkey),
-                    coldkey=str(neuron.coldkey),
-                    uid=neuron.uid,
-                    netuid=netuid,
-                    active=int(neuron.active),
-                    stake=Balance.from_tao(float(neuron.stakes.total)),
-                    stake_dict={str(neuron.coldkey): Balance.from_tao(float(neuron.stakes.total))},
-                    total_stake=Balance.from_tao(float(neuron.stakes.total)),
-                    rank=float(neuron.rank),
-                    emission=float(neuron.emission),
-                    incentive=float(neuron.incentive),
-                    consensus=float(neuron.consensus),
-                    trust=float(neuron.trust),
-                    validator_trust=float(neuron.validator_trust),
-                    dividends=float(neuron.dividends),
-                    last_update=neuron.last_update,
-                    validator_permit=bool(neuron.validator_permit),
-                    pruning_score=neuron.pruning_score,
-                    prometheus_info=None,
-                    axon_info=AxonInfo(
-                        version=0,
-                        ip=str(neuron.axon_info.ip),
-                        port=neuron.axon_info.port,
-                        ip_type=4,
-                        hotkey=str(hotkey),
-                        coldkey=str(neuron.coldkey),
-                        protocol=neuron.axon_info.protocol.value,
-                    ),
-                ),
+            axon_info = AxonInfo(
+                version=0,
+                ip=str(neuron.axon_info.ip),
+                port=neuron.axon_info.port,
+                ip_type=4,
+                hotkey=str(hotkey),
+                coldkey=str(neuron.coldkey),
+                protocol=neuron.axon_info.protocol.value,
             )
+            kwargs: dict[str, Any] = {
+                "hotkey": str(hotkey),
+                "coldkey": str(neuron.coldkey),
+                "uid": neuron.uid,
+                "netuid": netuid,
+                "active": int(neuron.active),
+                "stake": Balance.from_tao(float(neuron.stakes.total)),
+                "stake_dict": {str(neuron.coldkey): Balance.from_tao(float(neuron.stakes.total))},
+                "total_stake": Balance.from_tao(float(neuron.stakes.total)),
+                "rank": float(neuron.rank),
+                "emission": float(neuron.emission),
+                "incentive": float(neuron.incentive),
+                "consensus": float(neuron.consensus),
+                "trust": float(neuron.trust),
+                "validator_trust": float(neuron.validator_trust),
+                "dividends": float(neuron.dividends),
+                "last_update": neuron.last_update,
+                "validator_permit": bool(neuron.validator_permit),
+                "pruning_score": neuron.pruning_score,
+                "prometheus_info": None,
+                "axon_info": axon_info,
+            }
+            # Filter to only fields that exist in this version of NeuronInfoLite
+            kwargs = {k: v for k, v in kwargs.items() if k in neuron_fields}
+            neurons_lite.append(NeuronInfoLite(**kwargs))
 
         metagraph = Metagraph(
             netuid=netuid,
@@ -211,19 +217,22 @@ class PylonProvider(BlockchainProvider):
             dtype=metagraph._dtype_registry["float32"],
         )
 
-        # Populate stake arrays (not set by _set_metagraph_attributes)
+        # Populate arrays that _set_metagraph_attributes may not set
+        # (varies by bittensor SDK version)
         sorted_neurons = [neuron for _, neuron in sorted(response.neurons.items(), key=lambda item: item[1].uid)]
-        metagraph.alpha_stake = metagraph._create_tensor(
-            [float(neuron.stakes.alpha) for neuron in sorted_neurons],
-            dtype=metagraph._dtype_registry["float32"],
-        )
-        metagraph.tao_stake = metagraph._create_tensor(
-            [float(neuron.stakes.tao) for neuron in sorted_neurons],
-            dtype=metagraph._dtype_registry["float32"],
-        )
-        metagraph.total_stake = metagraph.stake = metagraph._create_tensor(
-            [float(neuron.stakes.total) for neuron in sorted_neurons],
-            dtype=metagraph._dtype_registry["float32"],
+        _tensor = metagraph._create_tensor
+        _f32 = metagraph._dtype_registry["float32"]
+
+        if not hasattr(metagraph, "trust") or not len(getattr(metagraph, "trust", [])):
+            metagraph.trust = _tensor([float(n.trust) for n in sorted_neurons], dtype=_f32)
+        if not hasattr(metagraph, "ranks") or not len(getattr(metagraph, "ranks", [])):
+            metagraph.ranks = _tensor([float(n.rank) for n in sorted_neurons], dtype=_f32)
+
+        metagraph.alpha_stake = _tensor([float(n.stakes.alpha) for n in sorted_neurons], dtype=_f32)
+        metagraph.tao_stake = _tensor([float(n.stakes.tao) for n in sorted_neurons], dtype=_f32)
+        metagraph.total_stake = metagraph.stake = _tensor(
+            [float(n.stakes.total) for n in sorted_neurons],
+            dtype=_f32,
         )
 
         return metagraph

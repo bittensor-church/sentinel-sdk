@@ -1,17 +1,17 @@
 import pytest
 
 from sentinel.v1.services.extractors.events.extractor import EventsExtractor
-from tests.unit.v1.providers import FakeBittensorProvider
+from tests.unit.v1.providers import FakeBlockchainProvider
 
 
-def test_event_extractor(fake_provider: FakeBittensorProvider):
+def test_event_extractor(fake_provider: FakeBlockchainProvider):
     batch_amount = 3
     block_number = 100
     block_hash = "0xabc123"
 
     fake_provider.with_block(block_number, block_hash).with_events(
         block_hash,
-        FakeBittensorProvider.create_mock_events(batch_amount),
+        FakeBlockchainProvider.create_mock_events(batch_amount),
     )
 
     extractor = EventsExtractor(fake_provider, block_number=block_number)
@@ -19,7 +19,7 @@ def test_event_extractor(fake_provider: FakeBittensorProvider):
     assert len(events) == batch_amount
 
 
-def test_event_extractor_no_block_hash(fake_provider: FakeBittensorProvider):
+def test_event_extractor_no_block_hash(fake_provider: FakeBlockchainProvider):
     block_number = 999
 
     extractor = EventsExtractor(fake_provider, block_number=block_number)
@@ -27,7 +27,7 @@ def test_event_extractor_no_block_hash(fake_provider: FakeBittensorProvider):
         extractor.extract()
 
 
-def test_event_extractor_no_events(fake_provider: FakeBittensorProvider):
+def test_event_extractor_no_events(fake_provider: FakeBlockchainProvider):
     block_number = 200
     block_hash = "0xdef456"
 

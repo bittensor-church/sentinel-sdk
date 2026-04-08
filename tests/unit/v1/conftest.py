@@ -3,13 +3,13 @@ from typing import Any
 import pytest
 
 from tests.unit.v1.factories import ExtrinsicDTOFactory, HyperparamExtrinsicDTOFactory
-from tests.unit.v1.providers import FakeBittensorProvider
+from tests.unit.v1.providers import FakeBlockchainProvider
 
 
 @pytest.fixture
-def fake_provider() -> FakeBittensorProvider:
-    """Provide a fresh FakeBittensorProvider instance for each test."""
-    return FakeBittensorProvider()
+def fake_provider() -> FakeBlockchainProvider:
+    """Provide a fresh FakeBlockchainProvider instance for each test."""
+    return FakeBlockchainProvider()
 
 
 @pytest.fixture
