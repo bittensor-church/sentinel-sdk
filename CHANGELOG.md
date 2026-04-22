@@ -9,6 +9,13 @@ upcoming release can be found in [changelog.d](changelog.d).
 
 <!-- towncrier release notes start -->
 
+## [0.2.3](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.3) - 2026-04-22
+
+### Added
+
+- `MetagraphExtractor` now populates `NeuronSnapshotBase.alpha_stake` (per-uid alpha stake in TAO) and `SubnetBase.alpha_out_emission` (subnet-wide alpha emission per block in TAO). Both default to `0.0` when the underlying metagraph object does not expose them. Required for downstream APY calculation.
+
+
 ## [0.2.2](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.2) - 2026-04-08
 
 ### Added

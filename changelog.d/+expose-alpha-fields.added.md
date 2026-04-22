@@ -1,1 +1,0 @@
-`MetagraphExtractor` now populates `NeuronSnapshotBase.alpha_stake` (per-uid alpha stake in TAO) and `SubnetBase.alpha_out_emission` (subnet-wide alpha emission per block in TAO). Both default to `0.0` when the underlying metagraph object does not expose them. Required for downstream APY calculation.
