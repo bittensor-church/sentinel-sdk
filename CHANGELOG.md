@@ -9,113 +9,113 @@ upcoming release can be found in [changelog.d](changelog.d).
 
 <!-- towncrier release notes start -->
 
-## [0.2.2](https://github.com/bittensor-church/sentinel/releases/tag/v0.2.2) - 2026-04-08
+## [0.2.2](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.2) - 2026-04-08
 
 ### Added
 
 - `sentinel.v1.testing` module with DTO factories, extrinsic presets (hyperparameter, coldkey swap, register network), and `FakeBlockchainProvider` for writing tests without a live Bittensor node. Install with `pip install bittensor-sentinel[testing]`.
 
 
-## [0.2.1](https://github.com/bittensor-church/sentinel/releases/tag/v0.2.1) - 2026-04-03
+## [0.2.1](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.1) - 2026-04-03
 
 - Pylon integration. Available in SDK and CLI
 
 
-## [0.2.0](https://github.com/bittensor-church/sentinel/releases/tag/v0.2.0) - 2026-02-18
+## [0.2.0](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.0) - 2026-02-18
 
 No significant changes.
 
 
-## [0.1.9](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.9) - 2026-01-29
+## [0.1.9](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.9) - 2026-01-29
 
 No significant changes.
 
 
-## [0.1.8](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.8) - 2026-01-28
+## [0.1.8](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.8) - 2026-01-28
 
 No significant changes.
 
 
-## [0.1.7](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.7) - 2026-01-25
+## [0.1.7](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.7) - 2026-01-25
 
 No significant changes.
 
 
-## [0.1.6](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.6) - 2026-01-12
+## [0.1.6](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.6) - 2026-01-12
 
 No significant changes.
 
 
-## [0.1.5](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.5) - 2026-01-12
+## [0.1.5](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.5) - 2026-01-12
 
 No significant changes.
 
 
-## [0.1.4](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.4) - 2025-12-19
+## [0.1.4](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.4) - 2025-12-19
 
 No significant changes.
 
 
-## [0.1.3](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.3) - 2025-12-19
+## [0.1.3](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.3) - 2025-12-19
 
 No significant changes.
 
 
-## [0.1.2](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.2) - 2025-12-19
+## [0.1.2](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.2) - 2025-12-19
 
 No significant changes.
 
 
-## [0.1.1](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.1) - 2025-12-19
+## [0.1.1](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.1) - 2025-12-19
 
 No significant changes.
 
 
-## [0.1.0](https://github.com/bittensor-church/sentinel/releases/tag/v0.1.0) - 2025-12-10
+## [0.1.0](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.1.0) - 2025-12-10
 
 No significant changes.
 
 
-## [0.0.9](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.9) - 2025-12-09
+## [0.0.9](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.9) - 2025-12-09
 
 No significant changes.
 
 
-## [0.0.8](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.8) - 2025-12-05
+## [0.0.8](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.8) - 2025-12-05
 
 No significant changes.
 
 
-## [0.0.7](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.7) - 2025-12-04
+## [0.0.7](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.7) - 2025-12-04
 
 No significant changes.
 
 
-## [0.0.6](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.6) - 2025-12-04
+## [0.0.6](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.6) - 2025-12-04
 
 No significant changes.
 
 
-## [0.0.5](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.5) - 2025-12-01
+## [0.0.5](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.5) - 2025-12-01
 
 No significant changes.
 
 
-## [0.0.4](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.4) - 2025-11-28
+## [0.0.4](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.4) - 2025-11-28
 
 No significant changes.
 
 
-## [0.0.3](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.3) - 2025-11-28
+## [0.0.3](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.3) - 2025-11-28
 
 No significant changes.
 
 
-## [0.0.2](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.2) - 2025-11-28
+## [0.0.2](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.2) - 2025-11-28
 
 No significant changes.
 
 
-## [0.0.1](https://github.com/bittensor-church/sentinel/releases/tag/v0.0.1) - 2025-11-27
+## [0.0.1](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.0.1) - 2025-11-27
 
 No significant changes.

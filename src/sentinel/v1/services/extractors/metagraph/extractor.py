@@ -193,6 +193,7 @@ class MetagraphExtractor:
         return SubnetWithOwner(
             netuid=metagraph.netuid,
             name=subnet_name,
+            alpha_out_emission=self._read_alpha_out_emission(metagraph),
             owner_hotkey_id=None,
             registered_at=datetime.now(tz=UTC),  # Would come from chain
             owner_hotkey=owner_hotkey,
@@ -247,6 +248,7 @@ class MetagraphExtractor:
         """Build a single NeuronSnapshotFull for a given UID."""
         # Extract arrays as lists
         stakes = self._to_list(metagraph.stake)
+        alpha_stakes = self._to_list(getattr(metagraph, "alpha_stake", None))
         ranks = self._to_list(metagraph.ranks)
         trusts = self._to_list(metagraph.trust)
         emissions = self._to_list(metagraph.emission)
@@ -262,6 +264,7 @@ class MetagraphExtractor:
 
         # Calculate normalized stake
         stake = stakes[uid] if uid < len(stakes) else 0.0
+        alpha_stake = alpha_stakes[uid] if uid < len(alpha_stakes) else 0.0
         normalized_stake = stake / total_subnet_stake if total_subnet_stake > 0 else 0.0
 
         # Determine immunity status
@@ -288,6 +291,7 @@ class MetagraphExtractor:
         subnet_dto = Subnet(
             netuid=metagraph.netuid,
             name=getattr(metagraph, "name", "") or "",
+            alpha_out_emission=self._read_alpha_out_emission(metagraph),
             owner_hotkey_id=None,
             registered_at=datetime.now(tz=UTC),
         )
@@ -307,6 +311,7 @@ class MetagraphExtractor:
             uid=uid,
             axon_address=axon_address,
             total_stake=float(stake),
+            alpha_stake=float(alpha_stake),
             normalized_stake=float(normalized_stake),
             rank=float(ranks[uid]) if uid < len(ranks) else 0.0,
             trust=float(trusts[uid]) if uid < len(trusts) else 0.0,
@@ -443,3 +448,11 @@ class MetagraphExtractor:
         if isinstance(tensor, (list, tuple)):
             return list(tensor)
         return []
+
+    @staticmethod
+    def _read_alpha_out_emission(metagraph: Metagraph) -> float:
+        """Read subnet-wide alpha emission per block (TAO), 0.0 if not exposed."""
+        emissions_obj = getattr(metagraph, "emissions", None)
+        if emissions_obj is None:
+            return 0.0
+        return float(getattr(emissions_obj, "alpha_out_emission", 0.0) or 0.0)

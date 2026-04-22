@@ -129,6 +129,7 @@ def _build_snapshot_metagraph_table(snapshot: FullSubnetSnapshot) -> Table:
     table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
     table.add_column("UID", style="cyan", justify="right")
     table.add_column("Stake", justify="right")
+    table.add_column("Alpha Stake", justify="right")
     table.add_column("Trust", justify="right")
     table.add_column("Consensus", justify="right")
     table.add_column("Incentive", justify="right")
@@ -136,6 +137,7 @@ def _build_snapshot_metagraph_table(snapshot: FullSubnetSnapshot) -> Table:
     table.add_column("Emission", justify="right")
     table.add_column("VPermit", justify="center")
     table.add_column("Updated", justify="right")
+    table.add_column("Registered", justify="right")
     table.add_column("Active", justify="center")
     table.add_column("Hotkey")
 
@@ -153,6 +155,7 @@ def _build_snapshot_metagraph_table(snapshot: FullSubnetSnapshot) -> Table:
         table.add_row(
             str(neuron.uid),
             f"{neuron.total_stake:.4f}",
+            f"{neuron.alpha_stake:.4f}",
             f"{neuron.trust:.5f}",
             f"{consensus:.5f}",
             f"{incentive:.5f}",
@@ -160,6 +163,7 @@ def _build_snapshot_metagraph_table(snapshot: FullSubnetSnapshot) -> Table:
             f"{neuron.emissions:.5f}",
             "[green]✓[/green]" if neuron.is_validator else "[dim]-[/dim]",
             str(last_update),
+            str(neuron.block_at_registration),
             "[green]✓[/green]" if neuron.is_active else "[dim]-[/dim]",
             hotkey_display,
         )
@@ -253,6 +257,7 @@ def metagraph(
                 "validator_count": snapshot.validator_count,
                 "miner_count": snapshot.miner_count,
                 "total_stake": snapshot.total_stake,
+                "alpha_out_emission": snapshot.subnet.alpha_out_emission,
                 "mechanism_count": snapshot.mechanism_count,
                 "neurons": [
                     {
@@ -264,6 +269,7 @@ def metagraph(
                             else ""
                         ),
                         "stake": neuron.total_stake,
+                        "alpha_stake": neuron.alpha_stake,
                         "normalized_stake": neuron.normalized_stake,
                         "trust": neuron.trust,
                         "rank": neuron.rank,
@@ -295,6 +301,9 @@ def metagraph(
         console.print(_build_snapshot_metagraph_table(snapshot))
         console.print()
         console.print(f"Total stake: [bold]{snapshot.total_stake:.4f}[/bold] TAO")
+        console.print(
+            f"Alpha out emission per block: [bold]{snapshot.subnet.alpha_out_emission:.6f}[/bold] TAO",
+        )
 
     _print_elapsed_time(start_time)
 
