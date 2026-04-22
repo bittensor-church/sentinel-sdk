@@ -136,6 +136,7 @@ def _build_snapshot_metagraph_table(snapshot: FullSubnetSnapshot) -> Table:
     table.add_column("Emission", justify="right")
     table.add_column("VPermit", justify="center")
     table.add_column("Updated", justify="right")
+    table.add_column("Registered", justify="right")
     table.add_column("Active", justify="center")
     table.add_column("Hotkey")
 
@@ -160,6 +161,7 @@ def _build_snapshot_metagraph_table(snapshot: FullSubnetSnapshot) -> Table:
             f"{neuron.emissions:.5f}",
             "[green]✓[/green]" if neuron.is_validator else "[dim]-[/dim]",
             str(last_update),
+            str(neuron.block_at_registration),
             "[green]✓[/green]" if neuron.is_active else "[dim]-[/dim]",
             hotkey_display,
         )

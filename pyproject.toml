@@ -34,8 +34,8 @@ testing = ["polyfactory>=3.1.0"]
 sentinel = "sentinel_cli.main:main"
 
 [project.urls]
-"Source" = "https://github.com/bittensor-church/sentinel"
-"Issue Tracker" = "https://github.com/bittensor-church/sentinel/issues"
+"Source" = "https://github.com/bittensor-church/sentinel-sdk"
+"Issue Tracker" = "https://github.com/bittensor-church/sentinel-sdk/issues"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -106,8 +106,8 @@ directory = "changelog.d"
 filename = "CHANGELOG.md"
 start_string = "<!-- towncrier release notes start -->\n"
 underlines = ["", "", ""]
-title_format = "## [{version}](https://github.com/bittensor-church/sentinel/releases/tag/v{version}) - {project_date}"
-issue_format = "[#{issue}](https://github.com/bittensor-church/sentinel/issues/{issue})"
+title_format = "## [{version}](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v{version}) - {project_date}"
+issue_format = "[#{issue}](https://github.com/bittensor-church/sentinel-sdk/issues/{issue})"
 
 [[tool.towncrier.type]]
 directory = "removed"
