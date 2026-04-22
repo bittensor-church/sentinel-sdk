@@ -166,6 +166,14 @@ class SubnetBase(BaseModel):
 
     netuid: int = Field(ge=0, description="Unique network identifier for the subnet")
     name: str = Field(default="", max_length=255, description="Human-readable subnet name")
+    alpha_out_emission: Annotated[
+        float,
+        Field(
+            default=0.0,
+            ge=0,
+            description="Alpha emission per block (TAO). 0 if the underlying metagraph does not expose it.",
+        ),
+    ]
 
 
 class Subnet(SubnetBase):
@@ -286,6 +294,14 @@ class NeuronSnapshotBase(BaseModel):
 
     # Stake metrics
     total_stake: Annotated[float, Field(ge=0, description="Total stake in TAO")]
+    alpha_stake: Annotated[
+        float,
+        Field(
+            default=0.0,
+            ge=0,
+            description="Alpha stake in TAO. 0 if the underlying metagraph does not expose it.",
+        ),
+    ]
     normalized_stake: Annotated[
         float,
         Field(ge=0, le=1, description="Stake as fraction of subnet total (0.0 - 1.0)"),
