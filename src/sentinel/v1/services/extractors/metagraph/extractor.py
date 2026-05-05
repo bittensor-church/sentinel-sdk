@@ -454,5 +454,12 @@ class MetagraphExtractor:
         """Read subnet-wide alpha emission per block (TAO), 0.0 if not exposed."""
         emissions_obj = getattr(metagraph, "emissions", None)
         if emissions_obj is None:
+            logger.warning(
+                "metagraph.emissions missing — alpha_out_emission unavailable",
+                netuid=getattr(metagraph, "netuid", None),
+            )
             return 0.0
-        return float(getattr(emissions_obj, "alpha_out_emission", 0.0) or 0.0)
+        val = getattr(emissions_obj, "alpha_out_emission", None)
+        if val is None:
+            return 0.0
+        return float(val)

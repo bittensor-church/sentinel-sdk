@@ -320,8 +320,13 @@ class BittensorProvider(BlockchainProvider):
         """
         Legacy metagraph retrieval for historical blocks.
 
-        This bypasses the buggy _runtime_call_with_fallback in the SDK
-        by patching _apply_extra_info to be a no-op during sync.
+        Works around a bittensor SDK bug where passing ``block=`` to
+        ``subtensor.get_metagraph_info`` raises "Invalid type for list data".
+        We replace ``_apply_extra_info`` with a version that drops that arg,
+        so emissions / pool / hparams are populated from chain head rather
+        than left empty. For live sync this is effectively current; for
+        historical backfill the extra info is from head, not the requested
+        block.
 
         Args:
             netuid: The subnet identifier
@@ -343,27 +348,39 @@ class BittensorProvider(BlockchainProvider):
             subtensor=subtensor,
         )
 
-        try:
-            # Patch _apply_extra_info to skip the buggy code path
-            original_apply_extra_info = metagraph._apply_extra_info
+        original_apply_extra_info = metagraph._apply_extra_info
 
-            def patched_apply_extra_info(block: int) -> None:
-                # Skip the buggy get_metagraph_info call for historical blocks
+        def patched_apply_extra_info(block: int) -> None:
+            # Replicate bittensor's _apply_extra_info, but without `block=` —
+            # that's the arg the SDK passes incorrectly downstream.
+            try:
+                metagraph_info = subtensor.get_metagraph_info(
+                    netuid=netuid, mechid=mechid
+                )
+                if metagraph_info:
+                    metagraph._apply_metagraph_info_mixin(metagraph_info=metagraph_info)
+                metagraph.mechanism_count = subtensor.get_mechanism_count(netuid=netuid)
+                metagraph.emissions_split = subtensor.get_mechanism_emission_split(
+                    netuid=netuid
+                )
                 logger.debug(
-                    "Skipping _apply_extra_info for historical block",
-                    block_number=block,
+                    "Applied extra info via legacy workaround (head)",
                     netuid=netuid,
+                    requested_block=block,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Legacy _apply_extra_info workaround failed; "
+                    "emissions/pool/hparams will be empty",
+                    netuid=netuid,
+                    block_number=block,
+                    error=str(e),
                 )
 
+        try:
             metagraph._apply_extra_info = patched_apply_extra_info  # type: ignore[method-assign]
-
-            # Now sync - this will populate the metagraph with neuron data
-            # but skip the buggy _apply_extra_info call
             metagraph.sync(block=block_number, lite=lite, subtensor=subtensor)
-
-            # Restore the original method
             metagraph._apply_extra_info = original_apply_extra_info  # type: ignore[method-assign]
-
             return metagraph
         except Exception:
             logger.exception(
