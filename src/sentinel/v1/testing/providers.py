@@ -72,7 +72,7 @@ class FakeBlockchainProvider(BlockchainProvider):
         """Get metagraph for a given netuid and block number."""
         return None
 
-    def get_mechanism_count(self, netuid: int) -> int:
+    def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
         """Get the number of mechanisms for a given netuid."""
         return 0
 

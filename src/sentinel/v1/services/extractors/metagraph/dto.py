@@ -174,6 +174,22 @@ class SubnetBase(BaseModel):
             description="Alpha emission per block (TAO). 0 if the underlying metagraph does not expose it.",
         ),
     ]
+    moving_price: Annotated[
+        float,
+        Field(
+            default=0.0,
+            ge=0,
+            description="Alpha->TAO moving price. 0.0 if the underlying metagraph does not expose it.",
+        ),
+    ]
+    tempo: Annotated[
+        int,
+        Field(
+            default=0,
+            ge=0,
+            description="Epoch length in blocks. 0 if the underlying metagraph does not expose it.",
+        ),
+    ]
 
 
 class Subnet(SubnetBase):
@@ -305,6 +321,31 @@ class NeuronSnapshotBase(BaseModel):
     normalized_stake: Annotated[
         float,
         Field(ge=0, le=1, description="Stake as fraction of subnet total (0.0 - 1.0)"),
+    ]
+
+    # Dividend metrics (dTAO-era APY inputs; 0.0 if the metagraph does not expose them)
+    alpha_dividends: Annotated[
+        float,
+        Field(
+            default=0.0,
+            ge=0,
+            description=(
+                "Net alpha dividends for this neuron's hotkey this epoch (TAO float, "
+                "AlphaDividendsPerSubnet index 71). Already net of owner cut and validator take. "
+                "Dividends are non-negative by protocol."
+            ),
+        ),
+    ]
+    tao_dividends: Annotated[
+        float,
+        Field(
+            default=0.0,
+            ge=0,
+            description=(
+                "Net TAO dividends for this neuron's hotkey this epoch (TAO float). "
+                "Dividends are non-negative by protocol."
+            ),
+        ),
     ]
 
     # Performance metrics

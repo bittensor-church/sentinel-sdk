@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
+
 from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.services.extractors.metagraph.dto import Block, MechanismMetrics
 from sentinel.v1.services.extractors.metagraph.extractor import MetagraphExtractor
@@ -137,6 +139,52 @@ class TestAlphaFields:
         assert snap.total_stake == 10.0
 
 
+class TestPartiallyPopulatedMetagraph:
+    """At certain historical blocks the bittensor SDK returns a Metagraph with
+    fields missing entirely (e.g. `ranks` not present on the object). The
+    extractor must degrade gracefully rather than crashing with AttributeError."""
+
+    @staticmethod
+    def _sparse_metagraph() -> SimpleNamespace:
+        # Only the bare minimum the extractor needs to reach the field reads.
+        return SimpleNamespace(
+            netuid=1,
+            name="test",
+            n=1,
+            axons=[_fake_axon()],
+            block=SimpleNamespace(item=lambda: 7_000_000),
+            emissions=None,
+            weights=None,
+            bonds=None,
+            hparams=None,
+        )
+
+    def test_missing_ranks_does_not_crash(self):
+        block = Block(block_number=7_000_000, timestamp=datetime.now(tz=UTC))
+        snap = _make_extractor()._build_single_neuron_snapshot(
+            metagraph=self._sparse_metagraph(),
+            uid=0,
+            total_subnet_stake=1.0,
+            mechanisms=[],
+            block=block,
+        )
+        assert snap.rank == 0.0
+        assert snap.trust == 0.0
+        assert snap.total_stake == 0.0
+
+    def test_missing_mechanism_fields_do_not_crash(self):
+        mm = _make_extractor()._build_mechanism_metrics(
+            metagraph=self._sparse_metagraph(),
+            uid=0,
+            mech_id=0,
+        )
+        assert mm.incentive == 0.0
+        assert mm.dividend == 0.0
+        assert mm.consensus == 0.0
+        assert mm.validator_trust == 0.0
+        assert mm.last_update == 0
+
+
 def test_dummy_mechanism_metrics_constructible_for_test_coverage():
     # Sanity: confirms imports work and DTO is constructible
     mm = MechanismMetrics(
@@ -151,3 +199,85 @@ def test_dummy_mechanism_metrics_constructible_for_test_coverage():
         last_update=0,
     )
     assert mm.mech_id == 0
+
+
+class TestDividendDataPoints:
+    """alpha/tao dividends (metagraph index 71) are mapped from per-hotkey
+    lists onto each neuron by hotkey."""
+
+    @staticmethod
+    def _metagraph_with_dividends() -> SimpleNamespace:
+        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])
+        # `_build_neuron_snapshots` parses `metagraph.n` via `.item()`; the bare
+        # int from _fake_metagraph is not subscriptable, so give it an .item().
+        mg.n = SimpleNamespace(item=lambda: 2)
+        # Distinct hotkeys per uid for an unambiguous mapping (default fake reuses one).
+        mg.axons = [_fake_axon(hotkey="5AAA"), _fake_axon(hotkey="5BBB")]
+        mg.alpha_dividends_per_hotkey = [("5AAA", 1.5), ("5BBB", 2.5)]
+        mg.tao_dividends_per_hotkey = [("5AAA", 0.15), ("5BBB", 0.25)]
+        return mg
+
+    def test_build_dividends_maps_from_metagraph(self):
+        mg = self._metagraph_with_dividends()
+        alpha_map, tao_map = MetagraphExtractor._build_dividends_maps(mg)
+        assert alpha_map == {"5AAA": 1.5, "5BBB": 2.5}
+        assert tao_map == {"5AAA": 0.15, "5BBB": 0.25}
+
+    def test_build_dividends_maps_empty_when_absent(self):
+        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])  # no *_dividends_per_hotkey attrs
+        alpha_map, tao_map = MetagraphExtractor._build_dividends_maps(mg)
+        assert alpha_map == {}
+        assert tao_map == {}
+
+    def test_dividends_mapped_by_hotkey_end_to_end(self):
+        mg = self._metagraph_with_dividends()
+        block = Block(block_number=1234, timestamp=datetime.now(tz=UTC))
+        neurons = _make_extractor()._build_neuron_snapshots([mg], block)
+
+        assert neurons[0].alpha_dividends == 1.5
+        assert neurons[0].tao_dividends == 0.15
+        assert neurons[1].alpha_dividends == 2.5
+        assert neurons[1].tao_dividends == 0.25
+
+    def test_dividends_default_zero_when_metagraph_omits_them(self):
+        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])  # no *_dividends_per_hotkey attrs
+        mg.n = SimpleNamespace(item=lambda: 2)
+        block = Block(block_number=1234, timestamp=datetime.now(tz=UTC))
+        neurons = _make_extractor()._build_neuron_snapshots([mg], block)
+
+        assert neurons[0].alpha_dividends == 0.0
+        assert neurons[0].tao_dividends == 0.0
+        assert neurons[1].alpha_dividends == 0.0
+        assert neurons[1].tao_dividends == 0.0
+
+
+class TestSubnetApyFields:
+    """moving_price and tempo are read onto the subnet DTO."""
+
+    def test_moving_price_and_tempo_extracted(self):
+        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])
+        mg.pool = SimpleNamespace(moving_price=0.0345)
+        mg.tempo = 360
+
+        subnet = _make_extractor()._build_subnet(mg)
+
+        assert subnet.moving_price == pytest.approx(0.0345)
+        assert subnet.tempo == 360
+
+    def test_tempo_falls_back_to_hparams(self):
+        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])
+        mg.pool = SimpleNamespace(moving_price=0.01)
+        mg.tempo = None
+        mg.hparams = SimpleNamespace(tempo=99)
+
+        subnet = _make_extractor()._build_subnet(mg)
+
+        assert subnet.tempo == 99
+
+    def test_moving_price_and_tempo_default_zero_when_absent(self):
+        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])  # no pool/tempo attrs (hparams is None)
+
+        subnet = _make_extractor()._build_subnet(mg)
+
+        assert subnet.moving_price == 0.0
+        assert subnet.tempo == 0
