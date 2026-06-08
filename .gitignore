@@ -16,3 +16,4 @@ media/
 __pycache__
 src/sentinel/_version.py
 .gitdo/
+docs/superpowers/
