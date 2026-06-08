@@ -296,15 +296,19 @@ class BittensorProvider(BlockchainProvider):
         subtensor = self._get_subtensor()
         try:
             return subtensor.metagraph(netuid=netuid, block=block_number, mechid=mechid, lite=lite)
-        except ValueError as e:
-            if "Invalid type for list data" in str(e):
-                # Workaround for bittensor SDK bug with historical blocks
-                # The SDK incorrectly passes [[netuid]] instead of [netuid] to get_metagraph
+        except (ValueError, TypeError) as e:
+            # Bittensor SDK bug with historical blocks: when `get_selective_mechagraph`
+            # doesn't exist at the block, it falls back to `get_metagraph` with
+            # params=[[netuid]] instead of [netuid]. Older scalecodec raised
+            # ValueError("Invalid type for list data"); newer versions raise
+            # TypeError from U16.process_encode ("int() argument must be ... not 'list'").
+            msg = str(e)
+            if "Invalid type for list data" in msg or "int() argument must be" in msg:
                 logger.warning(
                     "Bittensor SDK bug encountered, using legacy metagraph sync",
                     netuid=netuid,
                     block_number=block_number,
-                    error=str(e),
+                    error=msg,
                 )
                 return self._get_metagraph_legacy(netuid, block_number, mechid, lite=lite)
             raise
@@ -354,15 +358,11 @@ class BittensorProvider(BlockchainProvider):
             # Replicate bittensor's _apply_extra_info, but without `block=` —
             # that's the arg the SDK passes incorrectly downstream.
             try:
-                metagraph_info = subtensor.get_metagraph_info(
-                    netuid=netuid, mechid=mechid
-                )
+                metagraph_info = subtensor.get_metagraph_info(netuid=netuid, mechid=mechid)
                 if metagraph_info:
                     metagraph._apply_metagraph_info_mixin(metagraph_info=metagraph_info)
                 metagraph.mechanism_count = subtensor.get_mechanism_count(netuid=netuid)
-                metagraph.emissions_split = subtensor.get_mechanism_emission_split(
-                    netuid=netuid
-                )
+                metagraph.emissions_split = subtensor.get_mechanism_emission_split(netuid=netuid)
                 logger.debug(
                     "Applied extra info via legacy workaround (head)",
                     netuid=netuid,
@@ -370,8 +370,7 @@ class BittensorProvider(BlockchainProvider):
                 )
             except Exception as e:
                 logger.warning(
-                    "Legacy _apply_extra_info workaround failed; "
-                    "emissions/pool/hparams will be empty",
+                    "Legacy _apply_extra_info workaround failed; emissions/pool/hparams will be empty",
                     netuid=netuid,
                     block_number=block,
                     error=str(e),
@@ -390,18 +389,22 @@ class BittensorProvider(BlockchainProvider):
             )
             return None
 
-    def get_mechanism_count(self, netuid: int) -> int:
+    def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
         """
         Retrieve available mech IDs for a given netuid.
 
         Args:
             netuid: The subnet identifier
+            block_number: Optional block to query at. If None, queries chain head.
+                For historical blocks where the `MechanismCountCurrent` storage
+                does not yet exist, the underlying SDK returns 1.
+
         Returns:
-            List of mech IDs
+            The number of mechanisms for the subnet at the given block.
 
         """
         subtensor = self._get_subtensor()
-        return subtensor.get_mechanism_count(netuid=netuid)
+        return subtensor.get_mechanism_count(netuid=netuid, block=block_number)
 
     def get_all_subnets_netuids(self, exclude_netuids: list[int] | None = None) -> list[int]:
         """

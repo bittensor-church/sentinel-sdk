@@ -85,6 +85,6 @@ class BlockchainProvider(ABC):
         ...
 
     @abstractmethod
-    def get_mechanism_count(self, netuid: int) -> int:
-        """Get the number of mechanisms for a given netuid."""
+    def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
+        """Get the number of mechanisms for a given netuid at the given block (or chain head)."""
         ...

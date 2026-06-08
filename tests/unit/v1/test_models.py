@@ -40,7 +40,7 @@ class FakeBlockchainProvider(BlockchainProvider):
     def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0, *, lite: bool = False) -> Any:
         return None
 
-    def get_mechanism_count(self, netuid: int) -> int:
+    def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
         return 0
 
     def get_hash_by_block_number(self, block_number: int) -> str | None:

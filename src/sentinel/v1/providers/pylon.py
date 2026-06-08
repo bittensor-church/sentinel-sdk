@@ -237,10 +237,11 @@ class PylonProvider(BlockchainProvider):
 
         return metagraph
 
-    def get_mechanism_count(self, netuid: int) -> int:
+    def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
         logger.warning(
             "PylonProvider does not have mechanism count API, defaulting to 1",
             netuid=netuid,
+            block_number=block_number,
         )
         return 1
 

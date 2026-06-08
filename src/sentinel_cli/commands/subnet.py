@@ -20,6 +20,7 @@ from sentinel.v1.models.subnet import Subnet
 from sentinel.v1.providers.base import BlockchainProvider
 from sentinel.v1.providers.bittensor import ARCHIVE_NODE_URI, bittensor_provider
 from sentinel.v1.providers.pylon import pylon_provider
+from sentinel.v1.services.apy import ApyRow, compute_validator_apy_rows, epochs_per_year
 from sentinel.v1.services.extractors.dividends import DividendRecord, DividendsExtractor
 from sentinel_cli.blocks import resolve_block_number
 from sentinel_cli.output import console, is_json_output, is_raw_output, output_json
@@ -258,6 +259,8 @@ def metagraph(
                 "miner_count": snapshot.miner_count,
                 "total_stake": snapshot.total_stake,
                 "alpha_out_emission": snapshot.subnet.alpha_out_emission,
+                "moving_price": snapshot.subnet.moving_price,
+                "tempo": snapshot.subnet.tempo,
                 "mechanism_count": snapshot.mechanism_count,
                 "neurons": [
                     {
@@ -270,6 +273,8 @@ def metagraph(
                         ),
                         "stake": neuron.total_stake,
                         "alpha_stake": neuron.alpha_stake,
+                        "alpha_dividends": neuron.alpha_dividends,
+                        "tao_dividends": neuron.tao_dividends,
                         "normalized_stake": neuron.normalized_stake,
                         "trust": neuron.trust,
                         "rank": neuron.rank,
@@ -421,5 +426,120 @@ def hyperparams(
         console.print(f"Subnet: [cyan]{netuid}[/cyan]")
         console.print()
         console.print(_build_hyperparams_table(hyperparams_data))
+
+    _print_elapsed_time(start_time)
+
+
+def _build_apy_table(rows: list[ApyRow]) -> Table:
+    """Build a table of single-epoch-annualized validator APY."""
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+    table.add_column("UID", style="cyan", justify="right")
+    table.add_column("Hotkey")
+    table.add_column("Alpha Staked", justify="right")
+    table.add_column("Alpha Earned", justify="right")
+    table.add_column("r_epoch", justify="right")
+    table.add_column("APY %", justify="right")
+
+    for row in rows:
+        hotkey_display = (
+            row.hotkey[:HOTKEY_DISPLAY_LENGTH] + "..." if len(row.hotkey) > HOTKEY_DISPLAY_LENGTH else row.hotkey
+        )
+        r_epoch = (row.alpha_dividends / row.alpha_staked) if row.alpha_staked > 0 else 0.0
+        table.add_row(
+            str(row.uid),
+            hotkey_display,
+            f"{row.alpha_staked:.4f}",
+            f"{row.alpha_dividends:.6f}",
+            f"{r_epoch:.6f}",
+            f"{row.apy:.2f}",
+        )
+
+    return table
+
+
+@subnet.command()
+def apy(
+    ctx: typer.Context,
+) -> None:
+    """Render single-epoch annualized validator APY data points for a subnet."""
+    start_time = time.perf_counter()
+
+    netuid = ctx.obj["netuid"]
+    block_number = ctx.obj["block_number"]
+    mechid = ctx.obj["mechid"]
+    lite = ctx.obj["lite"]
+    provider: BlockchainProvider = ctx.obj["provider"]
+
+    try:
+        resolved_block = resolve_block_number(provider, block_number)
+    except BasePylonException as e:
+        _handle_pylon_error(e)
+
+    try:
+        subnet_instance = Subnet(provider, netuid, resolved_block, mechid, lite=lite)
+        snapshot = subnet_instance.metagraph
+    except BasePylonException as e:
+        _handle_pylon_error(e)
+    except StateDiscardedError:
+        console.print(
+            f"[red]Error:[/red] Block [cyan]{resolved_block}[/cyan] is too old and its state has been discarded.",
+        )
+        console.print()
+        console.print("To query historical blocks, use an archive node:")
+        console.print(f"  [dim]--network {ARCHIVE_NODE_URI}[/dim]")
+        console.print()
+        console.print("Example:")
+        console.print(
+            f"  [dim]sentinel subnet --netuid {netuid} --block {resolved_block} --network {ARCHIVE_NODE_URI} apy[/dim]",
+        )
+        raise typer.Exit(1) from None
+
+    if not snapshot:
+        console.print("[red]Error:[/red] Could not retrieve metagraph data.")
+        raise typer.Exit(1)
+
+    tempo = snapshot.subnet.tempo
+    moving_price = snapshot.subnet.moving_price
+    epochs = epochs_per_year(tempo) if tempo > 0 else 0.0
+    rows = compute_validator_apy_rows(snapshot.neurons, tempo) if tempo > 0 else []
+
+    if is_json_output():
+        output_json(
+            {
+                "block_number": resolved_block,
+                "netuid": netuid,
+                "tempo": tempo,
+                "moving_price": moving_price,
+                "epochs_per_year": epochs,
+                "validators": [
+                    {
+                        "uid": row.uid,
+                        "hotkey": row.hotkey,
+                        "alpha_staked": row.alpha_staked,
+                        "alpha_dividends": row.alpha_dividends,
+                        "tao_dividends": row.tao_dividends,
+                        "apy": row.apy,
+                    }
+                    for row in rows
+                ],
+            },
+        )
+    else:
+        console.print(f"Block: [cyan]{resolved_block}[/cyan]")
+        console.print(f"Subnet: [cyan]{netuid}[/cyan] - {snapshot.subnet.name}")
+        console.print(
+            f"Tempo: [cyan]{tempo}[/cyan]  "
+            f"Moving price: [cyan]{moving_price:.6f}[/cyan] TAO/alpha  "
+            f"Epochs/year: [cyan]{epochs:.1f}[/cyan]",
+        )
+        console.print()
+        if tempo <= 0:
+            console.print("[yellow]Tempo unavailable at this block — cannot compute APY.[/yellow]")
+        elif not rows:
+            console.print("[yellow]No validator dividend data at this block.[/yellow]")
+        else:
+            console.print(_build_apy_table(rows))
+        console.print()
+        console.print("[dim]APY is single-epoch annualized (shortcut), alpha-denominated.[/dim]")
 
     _print_elapsed_time(start_time)
