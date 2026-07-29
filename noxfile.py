@@ -18,7 +18,7 @@ MAIN_BRANCH_NAME = "master"
 PYTHON_VERSIONS = ["3.11", "3.12"]
 PYTHON_DEFAULT_VERSION = PYTHON_VERSIONS[-1]
 
-nox.options.default_venv_backend = "venv"
+nox.options.default_venv_backend = "uv"
 nox.options.stop_on_first_error = True
 nox.options.reuse_existing_virtualenvs = not CI
 
