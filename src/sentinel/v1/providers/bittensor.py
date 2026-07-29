@@ -88,7 +88,7 @@ class BittensorProvider(BlockchainProvider):
             subtensor = self._get_subtensor()
             return subtensor.get_block_hash(block_number)
         except Exception:
-            logger.exception("Failed to get block hash", block_number=block_number)
+            logger.warning("Failed to get block hash", block_number=block_number)
             return None
 
     def get_block_info(
@@ -115,7 +115,7 @@ class BittensorProvider(BlockchainProvider):
                 block_hash=block_hash,
             )
         except Exception:
-            logger.exception(
+            logger.warning(
                 "Failed to get block info",
                 block_number=block_number,
                 block_hash=block_hash,
@@ -158,7 +158,7 @@ class BittensorProvider(BlockchainProvider):
                 )
             return extrinsics
         except Exception:
-            logger.exception("Failed to get extrinsics", block_hash=block_hash)
+            logger.warning("Failed to get extrinsics", block_hash=block_hash)
             return None
 
     def get_events(self, block_hash: str) -> list[dict[str, Any]]:
@@ -189,7 +189,7 @@ class BittensorProvider(BlockchainProvider):
                 for event in events
             ]
         except Exception:
-            logger.exception("Failed to get events", block_hash=block_hash)
+            logger.warning("Failed to get events", block_hash=block_hash)
             return []
 
     def get_extrinsic_events(self, block_hash: str) -> dict[int, list[dict[str, Any]]]:
@@ -264,7 +264,7 @@ class BittensorProvider(BlockchainProvider):
                 block=block_number,
             )
         except Exception:
-            logger.exception(
+            logger.warning(
                 "Failed to fetch subnet hyperparams",
                 netuid=netuid,
                 block=block_number,
@@ -382,7 +382,7 @@ class BittensorProvider(BlockchainProvider):
             metagraph._apply_extra_info = original_apply_extra_info  # type: ignore[method-assign]
             return metagraph
         except Exception:
-            logger.exception(
+            logger.warning(
                 "Failed to get legacy metagraph",
                 netuid=netuid,
                 block_number=block_number,

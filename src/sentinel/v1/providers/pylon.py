@@ -59,7 +59,7 @@ class PylonProvider(BlockchainProvider):
             self._block_hash_cache[block_info.number] = block_info.hash
             return block_info.number
         except Exception:
-            logger.exception("Failed to get current block")
+            logger.warning("Failed to get current block")
             raise
 
     def get_block_hash(self, block_number: int) -> str | None:
@@ -81,7 +81,7 @@ class PylonProvider(BlockchainProvider):
             self._block_hash_cache[block_number] = block_hash
             return block_hash
         except Exception:
-            logger.exception("Failed to get block hash", block_number=block_number)
+            logger.warning("Failed to get block hash", block_number=block_number)
             return None
 
     def get_block_info(
@@ -138,7 +138,7 @@ class PylonProvider(BlockchainProvider):
             self._block_hash_cache[response.block.number] = response.block.hash
             return self._build_metagraph(response, netuid, block_number, mechid)
         except Exception:
-            logger.exception(
+            logger.warning(
                 "Failed to get metagraph",
                 netuid=netuid,
                 block_number=block_number,
@@ -258,7 +258,7 @@ class PylonProvider(BlockchainProvider):
             self._block_hash_cache[response.block.number] = response.block.hash
             return self._serialize_neurons_response(response)
         except Exception:
-            logger.exception("Failed to get neurons", netuid=netuid, block_number=block_number)
+            logger.warning("Failed to get neurons", netuid=netuid, block_number=block_number)
             raise
 
     def get_latest_neurons(self, netuid: int) -> dict[str, Any]:
@@ -269,7 +269,7 @@ class PylonProvider(BlockchainProvider):
             self._block_hash_cache[response.block.number] = response.block.hash
             return self._serialize_neurons_response(response)
         except Exception:
-            logger.exception("Failed to get latest neurons", netuid=netuid)
+            logger.warning("Failed to get latest neurons", netuid=netuid)
             raise
 
     def get_validators(self, netuid: int, block_number: int) -> list[dict[str, Any]]:
@@ -282,7 +282,7 @@ class PylonProvider(BlockchainProvider):
             )
             return [self._serialize_neuron(v) for v in response.validators]
         except Exception:
-            logger.exception("Failed to get validators", netuid=netuid, block_number=block_number)
+            logger.warning("Failed to get validators", netuid=netuid, block_number=block_number)
             raise
 
     def get_extrinsic_by_index(self, block_number: int, extrinsic_index: int) -> dict[str, Any] | None:
@@ -306,7 +306,7 @@ class PylonProvider(BlockchainProvider):
                 ],
             }
         except Exception:
-            logger.exception(
+            logger.warning(
                 "Failed to get extrinsic",
                 block_number=block_number,
                 extrinsic_index=extrinsic_index,
