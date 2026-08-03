@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -73,3 +74,179 @@ def test_get_mechanism_count_passes_block_through() -> None:
 
     assert provider.get_mechanism_count(netuid=78, block_number=6_000_000) == 1
     assert seen == {"netuid": 78, "block": 6_000_000}
+
+
+class _ScaleValue:
+    """Stand-in for a substrate SCALE object, which wraps its payload in `.value`."""
+
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+
+class _FakeSubstrate:
+    def __init__(
+        self,
+        emission_entries: list[tuple[object, object]] | None = None,
+        registered_entries: list[tuple[object, object]] | None = None,
+    ) -> None:
+        self._entries = {
+            "SubnetEmissionEnabled": emission_entries or [],
+            "NetworksAdded": registered_entries or [],
+        }
+        self.query_map_calls: list[tuple[str, str, object]] = []
+
+    def query_map(self, module, storage_function, block_hash):  # noqa: ANN001, ANN201
+        self.query_map_calls.append((module, storage_function, block_hash))
+        return list(self._entries[storage_function])
+
+
+def test_get_block_timestamp_returns_the_sdk_datetime() -> None:
+    """The bittensor SDK already returns a tz-aware UTC datetime; pass it through."""
+    provider = BittensorProvider(uri="ws://example/")
+    expected = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
+    seen: dict[str, object] = {}
+
+    class FakeSubtensor:
+        def get_timestamp(self, **kwargs):  # noqa: ANN003
+            seen.update(kwargs)
+            return expected
+
+    provider._subtensor = FakeSubtensor()  # type: ignore[assignment]
+
+    assert provider.get_block_timestamp(6_000_000) == expected
+    assert seen == {"block": 6_000_000}
+
+
+def test_get_block_timestamp_returns_none_when_the_block_state_is_gone() -> None:
+    """A pruned block is a routine miss, not a crash — the caller decides what to do."""
+    provider = BittensorProvider(uri="ws://example/")
+
+    class FakeSubtensor:
+        def get_timestamp(self, **kwargs):  # noqa: ANN003
+            raise ValueError("State already discarded")
+
+    provider._subtensor = FakeSubtensor()  # type: ignore[assignment]
+
+    assert provider.get_block_timestamp(6_000_000) is None
+
+
+def test_get_subnet_emission_enabled_defaults_subnets_without_an_entry_to_enabled() -> None:
+    """Only disabled subnets carry an explicit storage entry; the rest default to True."""
+    provider = BittensorProvider(uri="ws://example/")
+    substrate = _FakeSubstrate(
+        emission_entries=[(_ScaleValue(2), _ScaleValue(False))],
+        registered_entries=[(_ScaleValue(n), _ScaleValue(True)) for n in (0, 1, 2, 3)],
+    )
+
+    class FakeSubtensor:
+        substrate = None
+
+        def get_block_hash(self, block_number):  # noqa: ANN001, ANN201
+            return "0xabc"
+
+    fake = FakeSubtensor()
+    fake.substrate = substrate  # type: ignore[assignment]
+    provider._subtensor = fake  # type: ignore[assignment]
+
+    # The root subnet is included: filtering it is the caller's policy, not the
+    # provider's — this layer reports what the chain holds.
+    assert provider.get_subnet_emission_enabled(6_000_000) == {0: True, 1: True, 2: False, 3: True}
+    assert substrate.query_map_calls == [
+        ("SubtensorModule", "SubnetEmissionEnabled", "0xabc"),
+        ("SubtensorModule", "NetworksAdded", "0xabc"),
+    ]
+
+
+def test_get_subnet_emission_enabled_excludes_subnet_registered_after_historical_block() -> None:
+    """A subnet present at head but absent at the requested block must not be invented."""
+    provider = BittensorProvider(uri="ws://example/")
+    substrate = _FakeSubstrate(
+        registered_entries=[(_ScaleValue(1), _ScaleValue(True))],
+    )
+
+    class FakeSubtensor:
+        substrate = None
+
+        def get_block_hash(self, block_number):  # noqa: ANN001, ANN201
+            return "0xabc"
+
+    fake = FakeSubtensor()
+    fake.substrate = substrate  # type: ignore[assignment]
+    provider._subtensor = fake  # type: ignore[assignment]
+
+    # Subnet 2 was registered after block 6,000,000 and is now present at head.
+    with patch.object(provider, "get_all_subnets_netuids", return_value=[1, 2]) as head_netuids:
+        assert provider.get_subnet_emission_enabled(6_000_000) == {1: True}
+
+    head_netuids.assert_not_called()
+
+
+def test_get_subnet_emission_enabled_includes_subnet_deregistered_after_historical_block() -> None:
+    """A subnet absent at head but registered at the requested block must remain in the snapshot."""
+    provider = BittensorProvider(uri="ws://example/")
+    substrate = _FakeSubstrate(
+        emission_entries=[(_ScaleValue(1), _ScaleValue(False))],
+        registered_entries=[
+            (_ScaleValue(1), _ScaleValue(True)),
+            (_ScaleValue(2), _ScaleValue(True)),
+        ],
+    )
+
+    class FakeSubtensor:
+        substrate = None
+
+        def get_block_hash(self, block_number):  # noqa: ANN001, ANN201
+            return "0xabc"
+
+    fake = FakeSubtensor()
+    fake.substrate = substrate  # type: ignore[assignment]
+    provider._subtensor = fake  # type: ignore[assignment]
+
+    # Subnet 1 was deregistered after block 6,000,000 and is now absent at head.
+    with patch.object(provider, "get_all_subnets_netuids", return_value=[2]) as head_netuids:
+        assert provider.get_subnet_emission_enabled(6_000_000) == {1: False, 2: True}
+
+    head_netuids.assert_not_called()
+
+
+def test_get_subnet_emission_enabled_returns_none_when_the_chain_read_fails() -> None:
+    """A half-read map would look like 'everything enabled' — return None instead."""
+    provider = BittensorProvider(uri="ws://example/")
+
+    class FakeSubtensor:
+        substrate = _FakeSubstrate(
+            emission_entries=[(_ScaleValue(2), _ScaleValue(False))],
+            registered_entries=[(_ScaleValue(2), _ScaleValue(True))],
+        )
+
+        def get_block_hash(self, block_number):  # noqa: ANN001, ANN201
+            return "0xabc"
+
+    def fail_registry_read(module, storage_function, block_hash):  # noqa: ANN001, ANN201
+        if storage_function == "NetworksAdded":
+            raise ConnectionError("websocket closed")
+        return [(_ScaleValue(2), _ScaleValue(False))]
+
+    provider._subtensor = FakeSubtensor()  # type: ignore[assignment]
+    provider._subtensor.substrate.query_map = fail_registry_read  # type: ignore[method-assign,union-attr]
+
+    assert provider.get_subnet_emission_enabled(6_000_000) is None
+
+
+def test_get_subnet_emission_enabled_returns_none_when_block_hash_is_unresolved() -> None:
+    """A missing hash must not turn either historical read into a chain-head read."""
+    provider = BittensorProvider(uri="ws://example/")
+    substrate = _FakeSubstrate()
+
+    class FakeSubtensor:
+        substrate = None
+
+        def get_block_hash(self, block_number):  # noqa: ANN001, ANN201
+            return None
+
+    fake = FakeSubtensor()
+    fake.substrate = substrate  # type: ignore[assignment]
+    provider._subtensor = fake  # type: ignore[assignment]
+
+    assert provider.get_subnet_emission_enabled(6_000_000) is None
+    assert substrate.query_map_calls == []

@@ -11,6 +11,8 @@ from bittensor.core.subtensor import Subtensor
 from sentinel.v1.providers.base import BlockchainProvider
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from bittensor.core.chain_data import SubnetHyperparameters
     from bittensor.core.metagraph import Metagraph
     from bittensor.core.types import BlockInfo
@@ -20,6 +22,10 @@ logger = structlog.get_logger()
 DEFAULT_NETWORK_URI = "wss://entrypoint-finney.opentensor.ai:443"
 ARCHIVE_NODE_URI = "wss://archive.chain.opentensor.ai:443"
 BITTENSOR_SS58_FORMAT = 42
+
+SUBTENSOR_MODULE = "SubtensorModule"
+NETWORKS_ADDED_STORAGE = "NetworksAdded"
+SUBNET_EMISSION_ENABLED_STORAGE = "SubnetEmissionEnabled"
 
 
 class BittensorProvider(BlockchainProvider):
@@ -420,6 +426,69 @@ class BittensorProvider(BlockchainProvider):
             for subnet in subtensor.get_all_subnets_info()
             if not exclude_netuids or subnet.netuid not in exclude_netuids
         ]
+
+    def get_block_timestamp(self, block_number: int) -> datetime | None:
+        """
+        Retrieve the chain timestamp of a block.
+
+        Args:
+            block_number: The block number to query at
+
+        Returns:
+            A timezone-aware UTC datetime, or None if it could not be read.
+
+        """
+        try:
+            subtensor = self._get_subtensor()
+            return subtensor.get_timestamp(block=block_number)
+        except Exception:
+            # The timestamp lives in block state: a pruning node cannot answer
+            # for blocks older than its window, which is a routine miss rather
+            # than a fault.
+            logger.warning("Failed to get block timestamp", block_number=block_number)
+            return None
+
+    def get_subnet_emission_enabled(self, block_number: int) -> dict[int, bool] | None:
+        """
+        Retrieve SubtensorModule.SubnetEmissionEnabled for every subnet at a block.
+
+        Args:
+            block_number: The block number to query at
+
+        Returns:
+            Emission-enabled per netuid, or None if the storage map could not be
+            read. Registered subnets with no explicit storage entry are reported
+            as enabled, matching the chain's default.
+
+        """
+        try:
+            block_hash = self._get_subtensor().get_block_hash(block_number)
+            if not block_hash:
+                logger.warning("Failed to resolve block hash", block_number=block_number)
+                return None
+
+            stored = self.substrate.query_map(
+                module=SUBTENSOR_MODULE,
+                storage_function=SUBNET_EMISSION_ENABLED_STORAGE,
+                block_hash=block_hash,
+            )
+            explicit = {int(_scale_value(netuid)): bool(_scale_value(value)) for netuid, value in stored}
+            registered = self.substrate.query_map(
+                module=SUBTENSOR_MODULE,
+                storage_function=NETWORKS_ADDED_STORAGE,
+                block_hash=block_hash,
+            )
+            netuids = [int(_scale_value(netuid)) for netuid, exists in registered if bool(_scale_value(exists))]
+        except Exception:
+            logger.warning("Failed to get subnet emission enabled", block_number=block_number)
+            return None
+
+        return {netuid: explicit.get(netuid, True) for netuid in netuids}
+
+
+def _scale_value(value: Any) -> Any:
+    """Unwrap a SCALE object, which may or may not carry its payload in ``.value``."""
+    return getattr(value, "value", value)
 
 
 def bittensor_provider(network_uri: str | None = None) -> BittensorProvider:

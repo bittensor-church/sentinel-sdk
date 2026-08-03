@@ -1,5 +1,6 @@
 """Fake implementations of BlockchainProvider for testing."""
 
+from datetime import datetime
 from typing import Any
 
 from sentinel.v1.providers.base import BlockchainProvider
@@ -26,6 +27,9 @@ class FakeBlockchainProvider(BlockchainProvider):
         self.events: dict[str, list[dict[str, Any]]] = {}
         self.extrinsics: dict[str, list[dict[str, Any]]] = {}
         self.hyperparams: dict[tuple[int, int], dict[str, Any]] = {}
+        self.block_timestamps: dict[int, datetime] = {}
+        self.subnet_emission_enabled: dict[int, dict[int, bool]] = {}
+        self.subnet_netuids: list[int] = []
 
     def get_block_hash(self, block_number: int) -> str | None:
         return self.block_hashes.get(block_number)
@@ -76,6 +80,18 @@ class FakeBlockchainProvider(BlockchainProvider):
         """Get the number of mechanisms for a given netuid."""
         return 0
 
+    def get_all_subnets_netuids(self, exclude_netuids: list[int] | None = None) -> list[int]:
+        """Get the configured subnet netuids."""
+        return [netuid for netuid in self.subnet_netuids if not exclude_netuids or netuid not in exclude_netuids]
+
+    def get_block_timestamp(self, block_number: int) -> datetime | None:
+        """Get the configured timestamp for a block, or None to model an unreadable one."""
+        return self.block_timestamps.get(block_number)
+
+    def get_subnet_emission_enabled(self, block_number: int) -> dict[int, bool] | None:
+        """Get the configured emission state at a block, or None to model an unreadable map."""
+        return self.subnet_emission_enabled.get(block_number)
+
     # Fluent builder API
 
     def with_block(self, block_number: int, block_hash: str) -> "FakeBlockchainProvider":
@@ -101,6 +117,25 @@ class FakeBlockchainProvider(BlockchainProvider):
     ) -> "FakeBlockchainProvider":
         """Add hyperparameters for a block number and netuid."""
         self.hyperparams[(block_number, netuid)] = hyperparams
+        return self
+
+    def with_block_timestamp(self, block_number: int, timestamp: datetime) -> "FakeBlockchainProvider":
+        """Add a chain timestamp for a block. Blocks left out read back as None."""
+        self.block_timestamps[block_number] = timestamp
+        return self
+
+    def with_subnet_emission_enabled(
+        self,
+        block_number: int,
+        emission_enabled: dict[int, bool],
+    ) -> "FakeBlockchainProvider":
+        """Add the SubnetEmissionEnabled map at a block. Blocks left out read back as None."""
+        self.subnet_emission_enabled[block_number] = dict(emission_enabled)
+        return self
+
+    def with_subnet_netuids(self, netuids: list[int]) -> "FakeBlockchainProvider":
+        """Set which subnets are registered on the chain."""
+        self.subnet_netuids = list(netuids)
         return self
 
     @staticmethod

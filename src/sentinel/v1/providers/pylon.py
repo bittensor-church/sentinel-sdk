@@ -12,6 +12,8 @@ from pylon_client.artanis import BlockNumber, Config, NetUid, PylonAuthToken, Py
 from sentinel.v1.providers.base import BlockchainProvider
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from bittensor.core.chain_data import SubnetHyperparameters
     from bittensor.core.metagraph import Metagraph
     from pylon_client.artanis.v1 import GetNeuronsResponse, Neuron
@@ -103,6 +105,15 @@ class PylonProvider(BlockchainProvider):
 
     def get_extrinsic_status(self, block_hash: str, extrinsic_index: int) -> tuple[str, dict[str, Any] | None]:
         raise NotImplementedError("PylonProvider does not support get_extrinsic_status")
+
+    def get_all_subnets_netuids(self, exclude_netuids: list[int] | None = None) -> list[int]:
+        raise NotImplementedError("PylonProvider does not support get_all_subnets_netuids")
+
+    def get_block_timestamp(self, block_number: int) -> datetime | None:
+        raise NotImplementedError("PylonProvider does not support get_block_timestamp")
+
+    def get_subnet_emission_enabled(self, block_number: int) -> dict[int, bool] | None:
+        raise NotImplementedError("PylonProvider does not support get_subnet_emission_enabled")
 
     def get_subnet_hyperparams(self, block_number: int, netuid: int) -> list[Any] | SubnetHyperparameters | None:
         """Pylon does not provide subnet hyperparameters. Returns None."""
