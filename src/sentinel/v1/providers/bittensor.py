@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -11,8 +12,6 @@ from bittensor.core.subtensor import Subtensor
 from sentinel.v1.providers.base import BlockchainProvider
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from bittensor.core.chain_data import SubnetHyperparameters
     from bittensor.core.metagraph import Metagraph
     from bittensor.core.types import BlockInfo
@@ -26,6 +25,9 @@ BITTENSOR_SS58_FORMAT = 42
 SUBTENSOR_MODULE = "SubtensorModule"
 NETWORKS_ADDED_STORAGE = "NetworksAdded"
 SUBNET_EMISSION_ENABLED_STORAGE = "SubnetEmissionEnabled"
+
+# `Timestamp.Now` reads back as 0 when a node holds no state for the block.
+UNIX_EPOCH = datetime.fromtimestamp(0, tz=UTC)
 
 
 class BittensorProvider(BlockchainProvider):
@@ -440,13 +442,27 @@ class BittensorProvider(BlockchainProvider):
         """
         try:
             subtensor = self._get_subtensor()
-            return subtensor.get_timestamp(block=block_number)
+            timestamp = subtensor.get_timestamp(block=block_number)
         except Exception:
             # The timestamp lives in block state: a pruning node cannot answer
             # for blocks older than its window, which is a routine miss rather
             # than a fault.
             logger.warning("Failed to get block timestamp", block_number=block_number)
             return None
+
+        # Past its state window a node does not necessarily error — the public
+        # finney endpoint answers `Timestamp.Now` with the storage default (0) for
+        # blocks more than a few thousand back, which decodes to 1970-01-01.
+        # Reporting that as a real block time would silently poison anything
+        # plotted against it, so treat it as the miss it is.
+        if timestamp <= UNIX_EPOCH:
+            logger.warning(
+                "Node returned a zero block timestamp; treating the block as unreadable",
+                block_number=block_number,
+            )
+            return None
+
+        return timestamp
 
     def get_subnet_emission_enabled(self, block_number: int) -> dict[int, bool] | None:
         """
