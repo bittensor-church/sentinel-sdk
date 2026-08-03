@@ -43,6 +43,15 @@ class FakeBlockchainProvider(BlockchainProvider):
     def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
         return 0
 
+    def get_all_subnets_netuids(self, exclude_netuids: list[int] | None = None) -> list[int]:
+        return []
+
+    def get_block_timestamp(self, block_number: int) -> Any:
+        return None
+
+    def get_subnet_emission_enabled(self, block_number: int) -> dict[int, bool] | None:
+        return None
+
     def get_hash_by_block_number(self, block_number: int) -> str | None:
         """Get block hash by block number."""
         return "0xfakeblockhash"
