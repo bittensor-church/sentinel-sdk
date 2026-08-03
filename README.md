@@ -70,7 +70,7 @@ sentinel -f json extrinsics --block 4000000
    export PYLON_OPEN_ACCESS_TOKEN="your-token"  # only if Pylon requires authentication
    ```
 
-Use `PylonProvider` as a drop-in replacement for `BittensorProvider`:
+Use `PylonProvider` as an alternative for the supported provider operations:
 
 ```python
 from sentinel.v1.providers.pylon import pylon_provider
@@ -88,8 +88,11 @@ latest = provider.get_latest_neurons(netuid=1)
 ```
 
 > [!NOTE]
-> PylonProvider does not support block events, extrinsics listing, or subnet hyperparameters.
-> These methods raise `NotImplementedError`. Use `BittensorProvider` for full chain access.
+> PylonProvider does not support full block info, block events, extrinsics listing or status,
+> subnet hyperparameters, subnet registry listing (`get_all_subnets_netuids`), historical block
+> timestamps (`get_block_timestamp`), or subnet emission state (`get_subnet_emission_enabled`).
+> Unsupported event/extrinsic operations and the three named methods raise `NotImplementedError`;
+> full block info and subnet hyperparameters return `None`. Use `BittensorProvider` for full chain access.
 
 Or via CLI with the `--provider pylon` flag:
 

@@ -24,6 +24,7 @@ ARCHIVE_NODE_URI = "wss://archive.chain.opentensor.ai:443"
 BITTENSOR_SS58_FORMAT = 42
 
 SUBTENSOR_MODULE = "SubtensorModule"
+NETWORKS_ADDED_STORAGE = "NetworksAdded"
 SUBNET_EMISSION_ENABLED_STORAGE = "SubnetEmissionEnabled"
 
 
@@ -462,13 +463,22 @@ class BittensorProvider(BlockchainProvider):
         """
         try:
             block_hash = self._get_subtensor().get_block_hash(block_number)
+            if not block_hash:
+                logger.warning("Failed to resolve block hash", block_number=block_number)
+                return None
+
             stored = self.substrate.query_map(
                 module=SUBTENSOR_MODULE,
                 storage_function=SUBNET_EMISSION_ENABLED_STORAGE,
                 block_hash=block_hash,
             )
             explicit = {int(_scale_value(netuid)): bool(_scale_value(value)) for netuid, value in stored}
-            netuids = self.get_all_subnets_netuids()
+            registered = self.substrate.query_map(
+                module=SUBTENSOR_MODULE,
+                storage_function=NETWORKS_ADDED_STORAGE,
+                block_hash=block_hash,
+            )
+            netuids = [int(_scale_value(netuid)) for netuid, exists in registered if bool(_scale_value(exists))]
         except Exception:
             logger.warning("Failed to get subnet emission enabled", block_number=block_number)
             return None
