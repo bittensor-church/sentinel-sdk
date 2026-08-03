@@ -9,6 +9,19 @@ upcoming release can be found in [changelog.d](changelog.d).
 
 <!-- towncrier release notes start -->
 
+## [0.2.6](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.6) - 2026-08-03
+
+### Added
+
+- `BlockchainProvider` gained `get_block_timestamp`, `get_subnet_emission_enabled`, and
+  `get_all_subnets_netuids` (the last was previously only on `BittensorProvider`).
+  `BittensorProvider` implements all three; `PylonProvider` raises `NotImplementedError`.
+  `FakeBlockchainProvider` gained matching `with_block_timestamp`,
+  `with_subnet_emission_enabled`, and `with_subnet_netuids` builders.
+  `get_block_timestamp` returns None rather than 1970-01-01 when a node answers
+  `Timestamp.Now` with the storage default for a block outside its state window.
+
+
 ## [0.2.5](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.5) - 2026-07-29
 
 No significant changes.
