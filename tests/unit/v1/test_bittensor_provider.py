@@ -250,3 +250,18 @@ def test_get_subnet_emission_enabled_returns_none_when_block_hash_is_unresolved(
 
     assert provider.get_subnet_emission_enabled(6_000_000) is None
     assert substrate.query_map_calls == []
+
+
+def test_get_block_timestamp_rejects_the_zero_storage_default() -> None:
+    """Past its state window the public finney node answers `Timestamp.Now` with the
+    storage default (0) instead of erroring. Decoded that is 1970-01-01 — reporting it
+    as a real block time would silently poison anything plotted against it."""
+    provider = BittensorProvider(uri="ws://example/")
+
+    class FakeSubtensor:
+        def get_timestamp(self, **kwargs):  # noqa: ANN003
+            return datetime.fromtimestamp(0, tz=UTC)
+
+    provider._subtensor = FakeSubtensor()  # type: ignore[assignment]
+
+    assert provider.get_block_timestamp(6_000_000) is None
