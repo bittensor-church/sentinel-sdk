@@ -196,13 +196,16 @@ class TestWeightsAndBonds:
             (1, 0, 0.75),
         }
 
-    def test_bonds_are_flattened_into_rows(self):
-        mg = _metagraph(lite=False, bonds={0: {1: 0.5}})
+    @pytest.mark.parametrize("raw_bond", [1, 10000, 16384, 32768, 65535])
+    def test_bonds_restore_v10_raw_units(self, raw_bond):
+        mg = _metagraph(lite=False, bonds={0: {1: raw_bond / 65535}})
 
         bonds = _make_extractor()._build_bonds(mg)
 
         assert bonds is not None
-        assert (bonds[0].source_neuron_uid, bonds[0].target_neuron_uid, bonds[0].bond) == (0, 1, 0.5)
+        assert (bonds[0].source_neuron_uid, bonds[0].target_neuron_uid, bonds[0].bond) == (0, 1, raw_bond)
+        # Snapshot conversion must not change the matrix used for dividend calculations.
+        assert mg.bonds == {0: {1: raw_bond / 65535}}
 
     def test_zero_valued_entries_are_dropped(self):
         mg = _metagraph(lite=False, weights={0: {1: 0.0}})

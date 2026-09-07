@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from bittensor._transport.errors import StorageFunctionNotFound
+from bittensor.metagraph import _build
 
-from sentinel.v1.providers.bittensor import BittensorProvider
+from sentinel.v1.providers.bittensor import BittensorProvider, _to_subnet_metagraph
+from sentinel.v1.providers.pylon import PylonProvider
 
 
 class _FakeSnapshot:
@@ -20,7 +24,10 @@ class _FakeSnapshot:
 
     def read(self, name: str, **params: Any) -> Any:
         self._owner.reads.append((name, self.block, params))
-        return self._owner.read_results[name]
+        result = self._owner.read_results[name]
+        if isinstance(result, Exception):
+            raise result
+        return result
 
     def query(self, item: Any, params: list | None = None) -> Any:
         self._owner.query_calls.append((item.name, self.block, params))
@@ -89,6 +96,74 @@ def test_get_mechanism_count_without_a_block_reads_chain_head() -> None:
 
     assert provider.get_mechanism_count(netuid=78) == 3
     assert subtensor.reads == [("mechanism_count", None, {"netuid": 78})]
+
+
+def test_historical_mechanism_count_defaults_only_for_missing_storage() -> None:
+    subtensor = _FakeSubtensor(read_results={"mechanism_count": StorageFunctionNotFound("MechanismCountCurrent")})
+    provider = _provider_with(subtensor)
+
+    assert provider.get_mechanism_count(78, 4_000_000) == 1
+    assert subtensor.reads == [("mechanism_count", 4_000_000, {"netuid": 78})]
+
+    subtensor.read_results["mechanism_count"] = ConnectionError("unavailable")
+    with pytest.raises(ConnectionError):
+        provider.get_mechanism_count(78, 4_000_000)
+
+    subtensor.read_results["mechanism_count"] = 0
+    assert provider.get_mechanism_count(78, 4_000_000) == 0
+
+
+@pytest.mark.parametrize(
+    ("ip", "ip_type", "port", "expected"),
+    [
+        ("1.2.3.4", 4, 8080, "/ipv4/1.2.3.4:8080"),
+        ("2001:db8::1", 6, 9000, "/ipv6/2001:db8::1:9000"),
+        ("0.0.0.0", 0, 0, "/ipv0/0.0.0.0:0"),
+        ("0.0.0.0", 4, 8080, "/ipv4/0.0.0.0:8080"),
+    ],
+)
+def test_sdk_metagraph_preserves_v10_axon_addresses(ip, ip_type, port, expected) -> None:
+    raw = {
+        "block": 100,
+        "tempo": 360,
+        "last_step": 0,
+        "blocks_since_last_step": 100,
+        "owner_hotkey": "owner",
+        "owner_coldkey": "coldkey",
+        "network_registered_at": 0,
+        "hotkeys": ["hotkey"],
+        "coldkeys": ["coldkey"],
+        "axons": [{"ip": int(ip_address(ip)), "ip_type": ip_type, "port": port}],
+    }
+    graph = _build(1, raw, {})
+    result = _to_subnet_metagraph(graph, 1, 0, lite=True)
+
+    assert result.neurons[0].axon_address == expected
+
+
+@pytest.mark.parametrize("ip,port", [("1.2.3.4", 8080), ("0.0.0.0", 0)])
+def test_pylon_preserves_v10_axon_addresses(ip, port) -> None:
+    neuron = SimpleNamespace(
+        uid=0,
+        coldkey="coldkey",
+        axon_info=SimpleNamespace(ip=ip, port=port),
+        active=True,
+        validator_permit=False,
+        last_update=100,
+        rank=0,
+        trust=0,
+        consensus=0,
+        incentive=0,
+        dividends=0,
+        validator_trust=0,
+        pruning_score=0,
+        emission=0,
+        stakes=SimpleNamespace(total=0, alpha=0, tao=0),
+    )
+    response = SimpleNamespace(neurons={"hotkey": neuron}, block=SimpleNamespace(number=100))
+    result = PylonProvider("http://example")._build_metagraph(response, 1, 100, 0)
+
+    assert result.neurons[0].axon_address == f"/ipv4/{ip}:{port}"
 
 
 def test_get_block_timestamp_returns_the_sdk_datetime() -> None:

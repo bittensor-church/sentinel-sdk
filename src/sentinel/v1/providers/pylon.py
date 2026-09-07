@@ -168,7 +168,8 @@ class PylonProvider(BlockchainProvider):
                 uid=neuron.uid,
                 hotkey=str(hotkey),
                 coldkey=str(neuron.coldkey),
-                axon_address=f"{neuron.axon_info.ip}:{neuron.axon_info.port}",
+                # The previous Pylon adapter constructed AxonInfo with ip_type=4.
+                axon_address=f"/ipv4/{neuron.axon_info.ip}:{neuron.axon_info.port}",
                 active=bool(neuron.active),
                 validator_permit=bool(neuron.validator_permit),
                 last_update=neuron.last_update,

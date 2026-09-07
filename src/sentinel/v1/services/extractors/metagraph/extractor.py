@@ -335,8 +335,14 @@ class MetagraphExtractor:
         return self._build_matrix_records(metagraph.weights, Weight, "weight")
 
     def _build_bonds(self, metagraph: SubnetMetagraph) -> list[Bond] | None:
-        """Build Bond DTOs from the metagraph's bond matrix."""
-        return self._build_matrix_records(metagraph.bonds, Bond, "bond")
+        """Restore raw u16 units for snapshot DTOs from normalized SDK bonds."""
+        if metagraph.bonds is None:
+            return None
+        raw_bonds = {
+            source: {target: float(round(value * 65535)) for target, value in row.items()}
+            for source, row in metagraph.bonds.items()
+        }
+        return self._build_matrix_records(raw_bonds, Bond, "bond")
 
     def _build_matrix_records(
         self,

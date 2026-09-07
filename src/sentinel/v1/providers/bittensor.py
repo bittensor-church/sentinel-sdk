@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any
 
 import bittensor as bt
 import structlog
 from bittensor import Subtensor
+from bittensor._transport.errors import StorageFunctionNotFound
 from bittensor.hyperparams import RAO_PER_TAO, ratio_fraction
 from bittensor.settings import GLOBAL_MAX_SUBNET_COUNT
 
@@ -424,7 +426,7 @@ class BittensorProvider(BlockchainProvider):
             netuid: The subnet identifier
             block_number: Optional block to query at. If None, queries chain head.
                 For historical blocks where the `MechanismCountCurrent` storage
-                does not yet exist, the underlying SDK returns 1.
+                does not yet exist, this provider returns 1.
 
         Returns:
             The number of mechanisms for the subnet at the given block.
@@ -432,7 +434,11 @@ class BittensorProvider(BlockchainProvider):
         """
         subtensor = self._get_subtensor()
         view = subtensor.at(block_number) if block_number is not None else subtensor
-        return int(view.read("mechanism_count", netuid=netuid))
+        try:
+            return int(view.read("mechanism_count", netuid=netuid))
+        except StorageFunctionNotFound:
+            # Before multiple mechanisms were introduced every subnet had one.
+            return 1
 
     def get_all_subnets_netuids(self, exclude_netuids: list[int] | None = None) -> list[int]:
         """
@@ -562,6 +568,7 @@ def _to_subnet_metagraph(
 ) -> SubnetMetagraph:
     """Translate the SDK's Metagraph into sentinel's provider-neutral model."""
     raw = graph.raw or {}
+    axons = raw.get("axons") or []
 
     return SubnetMetagraph(
         netuid=netuid,
@@ -581,7 +588,7 @@ def _to_subnet_metagraph(
                 uid=neuron.uid,
                 hotkey=neuron.hotkey,
                 coldkey=neuron.coldkey,
-                axon_address=neuron.axon or "",
+                axon_address=_axon_address(axons[neuron.uid]) if neuron.uid < len(axons) else "",
                 active=bool(neuron.active),
                 validator_permit=bool(neuron.validator_permit),
                 last_update=int(neuron.last_update or 0),
@@ -603,6 +610,14 @@ def _to_subnet_metagraph(
         alpha_dividends_per_hotkey=_dividend_map(raw.get("alpha_dividends_per_hotkey")),
         tao_dividends_per_hotkey=_dividend_map(raw.get("tao_dividends_per_hotkey")),
     )
+
+
+def _axon_address(axon: dict[str, Any] | None) -> str:
+    """Preserve v10's AxonInfo.ip_str(), including unserved endpoints."""
+    if axon is None:
+        return ""
+    ip = ip_address(int(axon.get("ip") or 0))
+    return f"/ipv{int(axon.get('ip_type') or 0)}/{ip}:{int(axon.get('port') or 0)}"
 
 
 def _identity_name(identity: Any) -> str | None:

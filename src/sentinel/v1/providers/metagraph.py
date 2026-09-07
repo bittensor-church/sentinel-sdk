@@ -9,6 +9,7 @@ sentinel's model rather than on the SDK's current shape.
 
 Weight and bond matrices are sparse here: ``{source_uid: {target_uid: value}}``,
 omitting zeros, which is how the chain stores them and how v11 reports them.
+Weights sum to one per row; bonds are raw u16 values divided by 65535.
 """
 
 from __future__ import annotations
