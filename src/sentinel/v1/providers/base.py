@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from bittensor.core.chain_data import SubnetHyperparameters
-    from bittensor.core.metagraph import Metagraph
+    from sentinel.v1.providers.metagraph import SubnetMetagraph
 
 
 class BlockchainProvider(ABC):
@@ -31,7 +30,7 @@ class BlockchainProvider(ABC):
         ...
 
     @abstractmethod
-    def get_subnet_hyperparams(self, block_number: int, netuid: int) -> list[Any] | SubnetHyperparameters | None:
+    def get_subnet_hyperparams(self, block_number: int, netuid: int) -> dict[str, Any] | None:
         """Get subnet hyperparameters for a given block hash and netuid."""
         ...
 
@@ -73,7 +72,14 @@ class BlockchainProvider(ABC):
         self.close()
 
     @abstractmethod
-    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0, *, lite: bool = False) -> Metagraph | None:
+    def get_metagraph(
+        self,
+        netuid: int,
+        block_number: int,
+        mechid: int = 0,
+        *,
+        lite: bool = False,
+    ) -> SubnetMetagraph | None:
         """
         Get metagraph for a given netuid and block number.
 

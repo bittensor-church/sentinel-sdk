@@ -20,13 +20,8 @@ def _output_table(runtime_version: dict, block_number: int, block_hash: str) -> 
     console.print(f"Block: [cyan]{block_number}[/cyan]")
     console.print(f"Hash: [dim]{block_hash}[/dim]")
     console.print()
-    console.print(f"Spec Name: [bold]{runtime_version.get('specName', 'N/A')}[/bold]")
-    console.print(f"Spec Version: [green]{runtime_version.get('specVersion', 'N/A')}[/green]")
-    console.print(f"Impl Name: {runtime_version.get('implName', 'N/A')}")
-    console.print(f"Impl Version: {runtime_version.get('implVersion', 'N/A')}")
-    console.print(f"Authoring Version: {runtime_version.get('authoringVersion', 'N/A')}")
-    console.print(f"Transaction Version: {runtime_version.get('transactionVersion', 'N/A')}")
-    console.print(f"State Version: {runtime_version.get('stateVersion', 'N/A')}")
+    console.print(f"Spec Name: [bold]{runtime_version.get('spec_name', 'N/A')}[/bold]")
+    console.print(f"Spec Version: [green]{runtime_version.get('spec_version', 'N/A')}[/green]")
 
 
 def _output_json_format(runtime_version: dict, block_number: int, block_hash: str) -> None:
@@ -35,13 +30,8 @@ def _output_json_format(runtime_version: dict, block_number: int, block_hash: st
         {
             "block_number": block_number,
             "block_hash": block_hash,
-            "spec_name": runtime_version.get("specName"),
-            "spec_version": runtime_version.get("specVersion"),
-            "impl_name": runtime_version.get("implName"),
-            "impl_version": runtime_version.get("implVersion"),
-            "authoring_version": runtime_version.get("authoringVersion"),
-            "transaction_version": runtime_version.get("transactionVersion"),
-            "state_version": runtime_version.get("stateVersion"),
+            "spec_name": runtime_version.get("spec_name"),
+            "spec_version": runtime_version.get("spec_version"),
         },
     )
 
@@ -63,7 +53,10 @@ def info(
     resolved_block = resolve_block_number(provider, block_number)
     block_hash = resolve_block_hash(provider, resolved_block)
 
-    runtime_version = provider.substrate.get_runtime_version(block_hash)
+    runtime_version = provider.get_runtime_version(resolved_block)
+    if runtime_version is None:
+        console.print(f"[red]Error:[/red] Runtime version not found for block {resolved_block}")
+        raise typer.Exit(1)
 
     if is_json_output():
         _output_json_format(runtime_version, resolved_block, block_hash)
@@ -88,7 +81,12 @@ def version(
     resolved_block = resolve_block_number(provider, block_number)
     block_hash = resolve_block_hash(provider, resolved_block)
 
-    spec_version = provider.substrate.get_spec_version(block_hash)
+    runtime_version = provider.get_runtime_version(resolved_block)
+    if runtime_version is None:
+        console.print(f"[red]Error:[/red] Runtime version not found for block {resolved_block}")
+        raise typer.Exit(1)
+
+    spec_version = runtime_version.get("spec_version")
 
     if is_json_output():
         output_json(

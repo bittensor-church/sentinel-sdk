@@ -52,6 +52,8 @@ from sentinel.v1.testing.factories import (
     MetagraphDumpFactory,
     # Neuron
     NeuronFactory,
+    # Provider metagraph
+    NeuronRecordFactory,
     # Neuron snapshot
     NeuronSnapshotFactory,
     NeuronSnapshotFullFactory,
@@ -59,6 +61,7 @@ from sentinel.v1.testing.factories import (
     NeuronWithRelationsFactory,
     SubnetFactory,
     SubnetInfoDTOFactory,
+    SubnetMetagraphFactory,
     SubnetSnapshotSummaryFactory,
     SubnetWithOwnerFactory,
     WeightFactory,
@@ -121,6 +124,9 @@ __all__ = [
     # Aggregate
     "SubnetSnapshotSummaryFactory",
     "FullSubnetSnapshotFactory",
+    # Provider metagraph
+    "NeuronRecordFactory",
+    "SubnetMetagraphFactory",
     # Providers
     "FakeBlockchainProvider",
 ]

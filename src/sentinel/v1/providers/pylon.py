@@ -10,12 +10,11 @@ from pylon_client._internal.pylon_commons.types import ExtrinsicIndex
 from pylon_client.artanis import BlockNumber, Config, NetUid, PylonAuthToken, PylonClient
 
 from sentinel.v1.providers.base import BlockchainProvider
+from sentinel.v1.providers.metagraph import NeuronRecord, SubnetMetagraph
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from bittensor.core.chain_data import SubnetHyperparameters
-    from bittensor.core.metagraph import Metagraph
     from pylon_client.artanis.v1 import GetNeuronsResponse, Neuron
 
 logger = structlog.get_logger()
@@ -115,7 +114,7 @@ class PylonProvider(BlockchainProvider):
     def get_subnet_emission_enabled(self, block_number: int) -> dict[int, bool] | None:
         raise NotImplementedError("PylonProvider does not support get_subnet_emission_enabled")
 
-    def get_subnet_hyperparams(self, block_number: int, netuid: int) -> list[Any] | SubnetHyperparameters | None:
+    def get_subnet_hyperparams(self, block_number: int, netuid: int) -> dict[str, Any] | None:
         """Pylon does not provide subnet hyperparameters. Returns None."""
         return None
 
@@ -126,9 +125,9 @@ class PylonProvider(BlockchainProvider):
         mechid: int = 0,
         *,
         lite: bool = False,
-    ) -> Metagraph | None:
+    ) -> SubnetMetagraph | None:
         """
-        Construct a Metagraph from Pylon neuron data.
+        Construct a SubnetMetagraph from Pylon neuron data.
 
         Always returns a lite metagraph (no weights/bonds).
         If lite=False is requested, a warning is logged.
@@ -162,91 +161,42 @@ class PylonProvider(BlockchainProvider):
         netuid: int,
         block_number: int,
         mechid: int,
-    ) -> Metagraph:
-        import dataclasses
-
-        from bittensor.core.chain_data import AxonInfo, NeuronInfoLite
-        from bittensor.core.metagraph import Metagraph
-        from bittensor.utils.balance import Balance
-
-        neuron_fields = {f.name for f in dataclasses.fields(NeuronInfoLite)}
-
-        neurons_lite = []
-        for hotkey, neuron in sorted(response.neurons.items(), key=lambda item: item[1].uid):
-            axon_info = AxonInfo(
-                version=0,
-                ip=str(neuron.axon_info.ip),
-                port=neuron.axon_info.port,
-                ip_type=4,
+    ) -> SubnetMetagraph:
+        """Translate a Pylon neuron listing into sentinel's metagraph model."""
+        neurons = [
+            NeuronRecord(
+                uid=neuron.uid,
                 hotkey=str(hotkey),
                 coldkey=str(neuron.coldkey),
-                protocol=neuron.axon_info.protocol.value,
+                # The previous Pylon adapter constructed AxonInfo with ip_type=4.
+                axon_address=f"/ipv4/{neuron.axon_info.ip}:{neuron.axon_info.port}",
+                active=bool(neuron.active),
+                validator_permit=bool(neuron.validator_permit),
+                last_update=neuron.last_update,
+                rank=float(neuron.rank),
+                trust=float(neuron.trust),
+                consensus=float(neuron.consensus),
+                incentive=float(neuron.incentive),
+                dividends=float(neuron.dividends),
+                validator_trust=float(neuron.validator_trust),
+                pruning_score=float(neuron.pruning_score),
+                emission=float(neuron.emission),
+                total_stake=float(neuron.stakes.total),
+                alpha_stake=float(neuron.stakes.alpha),
+                tao_stake=float(neuron.stakes.tao),
             )
-            kwargs: dict[str, Any] = {
-                "hotkey": str(hotkey),
-                "coldkey": str(neuron.coldkey),
-                "uid": neuron.uid,
-                "netuid": netuid,
-                "active": int(neuron.active),
-                "stake": Balance.from_tao(float(neuron.stakes.total)),
-                "stake_dict": {str(neuron.coldkey): Balance.from_tao(float(neuron.stakes.total))},
-                "total_stake": Balance.from_tao(float(neuron.stakes.total)),
-                "rank": float(neuron.rank),
-                "emission": float(neuron.emission),
-                "incentive": float(neuron.incentive),
-                "consensus": float(neuron.consensus),
-                "trust": float(neuron.trust),
-                "validator_trust": float(neuron.validator_trust),
-                "dividends": float(neuron.dividends),
-                "last_update": neuron.last_update,
-                "validator_permit": bool(neuron.validator_permit),
-                "pruning_score": neuron.pruning_score,
-                "prometheus_info": None,
-                "axon_info": axon_info,
-            }
-            # Filter to only fields that exist in this version of NeuronInfoLite
-            kwargs = {k: v for k, v in kwargs.items() if k in neuron_fields}
-            neurons_lite.append(NeuronInfoLite(**kwargs))
+            for hotkey, neuron in sorted(response.neurons.items(), key=lambda item: item[1].uid)
+        ]
 
-        metagraph = Metagraph(
+        # Pylon reports neurons only: it carries no weights or bonds, and no
+        # subnet-level pool or emission state.
+        return SubnetMetagraph(
             netuid=netuid,
-            network="pylon",
             mechid=mechid,
-            sync=False,
+            block=response.block.number or block_number,
             lite=True,
+            neurons=neurons,
         )
-        metagraph.neurons = neurons_lite
-        metagraph._set_metagraph_attributes(block_number)
-
-        n = len(neurons_lite)
-        metagraph.weights = metagraph._create_tensor(
-            [[0.0] * n for _ in range(n)],
-            dtype=metagraph._dtype_registry["float32"],
-        )
-        metagraph.bonds = metagraph._create_tensor(
-            [[0.0] * n for _ in range(n)],
-            dtype=metagraph._dtype_registry["float32"],
-        )
-
-        # Populate arrays that _set_metagraph_attributes may not set
-        # (varies by bittensor SDK version)
-        sorted_neurons = [neuron for _, neuron in sorted(response.neurons.items(), key=lambda item: item[1].uid)]
-        _tensor = metagraph._create_tensor
-        _f32 = metagraph._dtype_registry["float32"]
-
-        if not hasattr(metagraph, "trust") or not len(getattr(metagraph, "trust", [])):
-            metagraph.trust = _tensor([float(n.trust) for n in sorted_neurons], dtype=_f32)
-        if not hasattr(metagraph, "ranks") or not len(getattr(metagraph, "ranks", [])):
-            metagraph.ranks = _tensor([float(n.rank) for n in sorted_neurons], dtype=_f32)
-
-        metagraph.alpha_stake = _tensor([float(n.stakes.alpha) for n in sorted_neurons], dtype=_f32)
-        metagraph.tao_stake = _tensor([float(n.stakes.tao) for n in sorted_neurons], dtype=_f32)
-        metagraph.total_stake = metagraph.stake = _tensor(
-            [float(n.stakes.total) for n in sorted_neurons],
-            dtype=_f32,
-        )
-
-        return metagraph
 
     def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
         logger.warning(

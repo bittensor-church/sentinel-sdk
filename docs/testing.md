@@ -19,6 +19,7 @@ from sentinel.v1.testing import (
     ExtrinsicDTOFactory,
     NeuronSnapshotFullFactory,
     FullSubnetSnapshotFactory,
+    SubnetMetagraphFactory,
     FakeBlockchainProvider,
 )
 
@@ -35,6 +36,10 @@ snapshot = FullSubnetSnapshotFactory.build()
 print(snapshot.subnet.netuid)
 print(len(snapshot.neurons))  # 3 neurons by default
 
+# Generate what a provider returns: a chain-side metagraph
+metagraph = SubnetMetagraphFactory.build_full(neuron_count=8)
+print(metagraph.weights_sum(0))  # 1.0
+
 # Set up a fake provider with chain state
 provider = (
     FakeBlockchainProvider()
@@ -47,7 +52,7 @@ provider = (
 
 ## Factories
 
-All factories extend `polyfactory.ModelFactory` and generate valid, fully-populated Pydantic models with random data. Override any field by passing keyword arguments to `.build()`.
+Most factories extend `polyfactory.ModelFactory` and generate valid, fully-populated Pydantic models with random data. The provider metagraph factories extend `polyfactory.DataclassFactory`, since the models they build are dataclasses. Override any field by passing keyword arguments to `.build()`.
 
 ### Extrinsic & Event factories
 
@@ -127,6 +132,53 @@ All factories extend `polyfactory.ModelFactory` and generate valid, fully-popula
 | `SubnetSnapshotSummaryFactory` | `SubnetSnapshotSummary` | Subnet summary with counts and total stake |
 | `FullSubnetSnapshotFactory` | `FullSubnetSnapshot` | Complete metagraph dump with 3 neurons, subnet, block |
 
+### Provider metagraph factories
+
+These build `sentinel.v1.providers.metagraph` models — what a `BlockchainProvider` returns, and therefore what the extractors consume. Scores stay in 0..1 and stakes are non-negative amounts in whole-token units. Registration and last-update blocks default to 0, so they do not postdate a historical snapshot; override them to test immunity and activity boundaries. Generated addresses have the SS58 prefix, alphabet, and length but **no valid checksum**; supply real addresses when testing address validation.
+
+| Factory | Generates | Notes |
+|---|---|---|
+| `NeuronRecordFactory` | `NeuronRecord` | One metagraph row, with `batch_with_uids()` for sequential uids |
+| `SubnetMetagraphFactory` | `SubnetMetagraph` | Lite metagraph with 3 neurons; `build_full()` adds tensors; `build_with_roles()` creates validators and miners for dividend tests |
+
+`SubnetMetagraph.neuron()` looks a neuron up by list position, so a graph's neurons must carry uids matching their index. `NeuronRecordFactory.batch_with_uids(n)` numbers them accordingly; plain `batch(n)` randomizes uids and breaks that invariant. The graph factory rejects non-sequential, duplicate, or out-of-order uids rather than generating mismatched tensors.
+
+`build_full()` generates synthetic equal-weight connections between every pair of distinct neurons. Neurons default to having no validator permit, so use `build_with_roles()` for a nonzero Yuma3 dividend scenario: it gives validators positive equal stake, miners equal incentive and zero stake, and connects only validators to miners. Override `weights` or `bonds` to exercise asymmetric calculations or missing data. These are test presets, not simulations of chain consensus.
+
+```python
+from sentinel.v1.testing import NeuronRecordFactory, SubnetMetagraphFactory
+
+# A lite metagraph: 3 neurons with uids 0..2, no weights or bonds
+metagraph = SubnetMetagraphFactory.build(netuid=7, block=100)
+
+# A full one: weights and bonds keyed by its own uids, dividends by its own hotkeys
+metagraph = SubnetMetagraphFactory.build_full(neuron_count=64)
+
+# Empty and single-neuron subnets are supported
+empty = SubnetMetagraphFactory.build_full(neurons=[])
+single = SubnetMetagraphFactory.build_full(neuron_count=1)  # empty tensor rows
+
+# A populated dividend scenario: two validators bonding to three miners
+metagraph = SubnetMetagraphFactory.build_with_roles(validator_count=2, miner_count=3)
+
+# Model a provider that cannot return bonds, or a fetched but empty matrix
+missing_bonds = SubnetMetagraphFactory.build_full(bonds=None)
+empty_bonds = SubnetMetagraphFactory.build_full(bonds={})
+
+# Bring your own neurons, e.g. two validators and two miners
+neurons = [
+    *NeuronRecordFactory.batch_with_uids(2, validator_permit=True, total_stake=100.0),
+    *NeuronRecordFactory.batch_with_uids(2, start=2, incentive=0.5),
+]
+metagraph = SubnetMetagraphFactory.build_full(neurons=neurons)
+
+# Reproduce all random fields, including nested neurons and dividend maps
+SubnetMetagraphFactory.seed_random(42)
+first = SubnetMetagraphFactory.build_full()
+SubnetMetagraphFactory.seed_random(42)
+assert SubnetMetagraphFactory.build_full() == first
+```
+
 ## Common patterns
 
 ```python
@@ -171,6 +223,13 @@ ext = DisputeColdkeySwapExtrinsicDTOFactory.build()
 
 # Build tensor data for a specific block
 weights = WeightFactory.batch(10, block_number=100)
+
+# Feed a chain-side metagraph to an extractor through the fake provider
+from sentinel.v1.testing import FakeBlockchainProvider, SubnetMetagraphFactory
+provider = FakeBlockchainProvider().with_metagraph(
+    SubnetMetagraphFactory.build_full(netuid=1, block=100),
+    block_number=100,
+)
 ```
 
 ## FakeBlockchainProvider
@@ -204,6 +263,10 @@ assert provider.get_subnet_hyperparams(100, 1) == {"tempo": 360}
 | `with_events(block_hash, events)` | Register events for a block hash |
 | `with_extrinsics(block_hash, extrinsics)` | Register extrinsics for a block hash |
 | `with_hyperparams(block_number, netuid, hyperparams)` | Register hyperparameters for a block/subnet pair |
+| `with_block_timestamp(block_number, timestamp)` | Register a chain timestamp for a block; blocks left out read back as `None` |
+| `with_metagraph(metagraph, block_number)` | Register a `SubnetMetagraph` at a block, keyed by its own netuid and mechid |
+| `with_subnet_netuids(netuids)` | Set which subnets are registered on the chain |
+| `with_subnet_emission_enabled(block_number, emission_enabled)` | Register the `SubnetEmissionEnabled` map at a block |
 
 ### Static helpers
 

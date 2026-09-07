@@ -1,59 +1,46 @@
 """Unit tests for MetagraphExtractor field extraction.
 
-These tests construct a minimal stand-in for ``bittensor.Metagraph`` and pass
-it directly to private extractor helpers. The goal is to verify that fields
-the extractor previously dropped — ``alpha_stake`` and ``alpha_out_emission``
-— are now read into the DTO.
+These tests build ``SubnetMetagraph`` values directly and pass them to the
+extractor's helpers. The provider is responsible for translating whatever the
+bittensor SDK returns into that model, so the extractor is tested against
+sentinel's own types rather than the SDK's.
 """
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from typing import cast
 
 import pytest
 
 from sentinel.v1.providers.base import BlockchainProvider
+from sentinel.v1.providers.metagraph import NeuronRecord, SubnetMetagraph
 from sentinel.v1.services.extractors.metagraph.dto import Block, MechanismMetrics
 from sentinel.v1.services.extractors.metagraph.extractor import MetagraphExtractor
 
 
-def _fake_axon(hotkey: str = "5HOTKEY", coldkey: str = "5COLDKEY") -> SimpleNamespace:
-    return SimpleNamespace(
-        hotkey=hotkey,
-        coldkey=coldkey,
-        ip_str=lambda: "/ip4/0.0.0.0/tcp/0",
-    )
+def _neuron(uid: int, **overrides) -> NeuronRecord:
+    defaults = {
+        "hotkey": f"5HOTKEY{uid}",
+        "coldkey": f"5COLDKEY{uid}",
+        "axon_address": "0.0.0.0:0",
+        "active": True,
+        "validator_permit": uid == 0,
+        "rank": 0.1 * (uid + 1),
+        "trust": 0.5 + 0.1 * uid,
+        "emission": 1.0 * (uid + 1),
+        "total_stake": 10.0 * (uid + 1),
+        "block_at_registration": 100 * (uid + 1),
+    }
+    return NeuronRecord(uid=uid, **{**defaults, **overrides})
 
 
-def _fake_metagraph(
-    *,
-    netuid: int = 1,
-    n: int = 2,
-    alpha_stake: list[float] | None = None,
-    alpha_out_emission: float | None = None,
-) -> SimpleNamespace:
-    """Build a SimpleNamespace shaped like bittensor.Metagraph for the tested code paths."""
-    stakes = [10.0, 20.0]
-    return SimpleNamespace(
-        netuid=netuid,
-        name="test",
-        n=n,
-        stake=stakes,
-        alpha_stake=alpha_stake,
-        ranks=[0.1, 0.2],
-        trust=[0.5, 0.6],
-        emission=[1.0, 2.0],
-        active=[True, True],
-        validator_permit=[True, False],
-        block_at_registration=[100, 200],
-        axons=[_fake_axon(), _fake_axon()],
-        emissions=(SimpleNamespace(alpha_out_emission=alpha_out_emission) if alpha_out_emission is not None else None),
-        block=SimpleNamespace(item=lambda: 1234),
-        # Attributes used by helpers but not central to these tests:
-        weights=None,
-        bonds=None,
-        hparams=None,
-    )
+def _metagraph(**overrides) -> SubnetMetagraph:
+    defaults = {
+        "netuid": 1,
+        "name": "test",
+        "block": 1234,
+        "neurons": [_neuron(0), _neuron(1)],
+    }
+    return SubnetMetagraph(**{**defaults, **overrides})
 
 
 def _make_extractor() -> MetagraphExtractor:
@@ -66,123 +53,183 @@ def _make_extractor() -> MetagraphExtractor:
     )
 
 
+def _block() -> Block:
+    return Block(block_number=1234, timestamp=datetime.now(tz=UTC))
+
+
 class TestAlphaFields:
     def test_alpha_stake_is_extracted_per_uid(self):
-        mg = _fake_metagraph(alpha_stake=[7.5, 9.25])
-        block = Block(block_number=1234, timestamp=datetime.now(tz=UTC))
+        mg = _metagraph(
+            neurons=[_neuron(0, alpha_stake=7.5), _neuron(1, alpha_stake=9.25)],
+        )
         extractor = _make_extractor()
 
-        snap_uid_0 = extractor._build_single_neuron_snapshot(
-            metagraph=mg,
-            uid=0,
-            total_subnet_stake=30.0,
-            mechanisms=[],
-            block=block,
-        )
-        snap_uid_1 = extractor._build_single_neuron_snapshot(
-            metagraph=mg,
-            uid=1,
-            total_subnet_stake=30.0,
-            mechanisms=[],
-            block=block,
-        )
+        snapshots = [
+            extractor._build_single_neuron_snapshot(
+                metagraph=mg,
+                neuron=neuron,
+                total_subnet_stake=30.0,
+                mechanisms=[],
+                block=_block(),
+            )
+            for neuron in mg.neurons
+        ]
 
-        assert snap_uid_0.alpha_stake == 7.5
-        assert snap_uid_1.alpha_stake == 9.25
+        assert snapshots[0].alpha_stake == 7.5
+        assert snapshots[1].alpha_stake == 9.25
 
-    def test_alpha_stake_defaults_to_zero_when_metagraph_omits_it(self):
-        # Pylon may not always populate alpha_stake; older bittensor versions don't either.
-        mg = _fake_metagraph(alpha_stake=None)
-        block = Block(block_number=1234, timestamp=datetime.now(tz=UTC))
+    def test_alpha_stake_defaults_to_zero_when_the_provider_omits_it(self):
+        # Pylon does not always report alpha stake; the model defaults it to 0.
+        mg = _metagraph()
         extractor = _make_extractor()
 
         snap = extractor._build_single_neuron_snapshot(
             metagraph=mg,
-            uid=0,
+            neuron=mg.neurons[0],
             total_subnet_stake=30.0,
             mechanisms=[],
-            block=block,
+            block=_block(),
         )
 
         assert snap.alpha_stake == 0.0
 
     def test_alpha_out_emission_is_extracted(self):
-        mg = _fake_metagraph(alpha_out_emission=1.234)
-        extractor = _make_extractor()
-
-        subnet = extractor._build_subnet(mg)
+        subnet = _make_extractor()._build_subnet(_metagraph(alpha_out_emission=1.234))
 
         assert subnet.alpha_out_emission == 1.234
 
-    def test_alpha_out_emission_defaults_to_zero_when_emissions_object_missing(self):
-        mg = _fake_metagraph(alpha_out_emission=None)
-        extractor = _make_extractor()
-
-        subnet = extractor._build_subnet(mg)
+    def test_alpha_out_emission_defaults_to_zero_when_absent(self):
+        subnet = _make_extractor()._build_subnet(_metagraph())
 
         assert subnet.alpha_out_emission == 0.0
 
     def test_existing_total_stake_field_is_unchanged(self):
-        # Regression guard: alpha_stake addition must not affect total_stake.
-        mg = _fake_metagraph(alpha_stake=[7.5, 9.25])
-        block = Block(block_number=1234, timestamp=datetime.now(tz=UTC))
+        # Regression guard: alpha_stake must not affect total_stake.
+        mg = _metagraph(neurons=[_neuron(0, alpha_stake=7.5)])
         extractor = _make_extractor()
 
         snap = extractor._build_single_neuron_snapshot(
             metagraph=mg,
-            uid=0,
+            neuron=mg.neurons[0],
             total_subnet_stake=30.0,
             mechanisms=[],
-            block=block,
+            block=_block(),
         )
 
         assert snap.total_stake == 10.0
 
 
-class TestPartiallyPopulatedMetagraph:
-    """At certain historical blocks the bittensor SDK returns a Metagraph with
-    fields missing entirely (e.g. `ranks` not present on the object). The
-    extractor must degrade gracefully rather than crashing with AttributeError."""
+class TestSparselyPopulatedMetagraph:
+    """A provider may not be able to report every field — Pylon carries no
+    weights or subnet-level pool state, and historical blocks predate some
+    chain storage. The extractor must degrade to defaults, not crash."""
 
-    @staticmethod
-    def _sparse_metagraph() -> SimpleNamespace:
-        # Only the bare minimum the extractor needs to reach the field reads.
-        return SimpleNamespace(
-            netuid=1,
-            name="test",
-            n=1,
-            axons=[_fake_axon()],
-            block=SimpleNamespace(item=lambda: 7_000_000),
-            emissions=None,
-            weights=None,
-            bonds=None,
-            hparams=None,
-        )
-
-    def test_missing_ranks_does_not_crash(self):
+    def test_neuron_defaults_do_not_crash(self):
+        mg = SubnetMetagraph(netuid=1, block=7_000_000, neurons=[NeuronRecord(uid=0)])
         block = Block(block_number=7_000_000, timestamp=datetime.now(tz=UTC))
+
         snap = _make_extractor()._build_single_neuron_snapshot(
-            metagraph=self._sparse_metagraph(),
-            uid=0,
+            metagraph=mg,
+            neuron=mg.neurons[0],
             total_subnet_stake=1.0,
             mechanisms=[],
             block=block,
         )
+
         assert snap.rank == 0.0
         assert snap.trust == 0.0
         assert snap.total_stake == 0.0
+        assert snap.is_immune is False
 
-    def test_missing_mechanism_fields_do_not_crash(self):
-        mm = _make_extractor()._build_mechanism_metrics(
-            metagraph=self._sparse_metagraph(),
+    def test_mechanism_metrics_default_when_the_uid_is_absent(self):
+        mm = MetagraphExtractor._build_mechanism_metrics(
+            metagraph=SubnetMetagraph(netuid=1),
             uid=0,
             mech_id=0,
         )
+
         assert mm.incentive == 0.0
         assert mm.dividend == 0.0
         assert mm.consensus == 0.0
         assert mm.validator_trust == 0.0
+        assert mm.weights_sum == 0.0
         assert mm.last_update == 0
+
+    def test_weights_and_bonds_are_none_when_not_fetched(self):
+        extractor = _make_extractor()
+        mg = _metagraph()
+
+        assert extractor._build_weights(mg) is None
+        assert extractor._build_bonds(mg) is None
+
+
+class TestMechanismMetrics:
+    def test_metrics_are_read_from_the_matching_neuron(self):
+        mg = _metagraph(
+            neurons=[
+                _neuron(0, incentive=0.4, dividends=0.7, consensus=0.3, validator_trust=0.9, last_update=42),
+                _neuron(1),
+            ],
+            weights={0: {1: 0.25, 0: 0.75}},
+        )
+
+        mm = MetagraphExtractor._build_mechanism_metrics(metagraph=mg, uid=0, mech_id=2)
+
+        assert mm.mech_id == 2
+        assert mm.incentive == 0.4
+        assert mm.dividend == 0.7
+        assert mm.consensus == 0.3
+        assert mm.validator_trust == 0.9
+        assert mm.last_update == 42
+        assert mm.weights_sum == pytest.approx(1.0)
+
+
+class TestWeightsAndBonds:
+    def test_weights_are_flattened_into_rows(self):
+        mg = _metagraph(lite=False, weights={0: {1: 0.25}, 1: {0: 0.75}})
+
+        weights = _make_extractor()._build_weights(mg)
+
+        assert weights is not None
+        assert {(w.source_neuron_uid, w.target_neuron_uid, w.weight) for w in weights} == {
+            (0, 1, 0.25),
+            (1, 0, 0.75),
+        }
+
+    @pytest.mark.parametrize("raw_bond", [1, 10000, 16384, 32768, 65535])
+    def test_bonds_restore_v10_raw_units(self, raw_bond):
+        mg = _metagraph(lite=False, bonds={0: {1: raw_bond / 65535}})
+
+        bonds = _make_extractor()._build_bonds(mg)
+
+        assert bonds is not None
+        assert (bonds[0].source_neuron_uid, bonds[0].target_neuron_uid, bonds[0].bond) == (0, 1, raw_bond)
+        # Snapshot conversion must not change the matrix used for dividend calculations.
+        assert mg.bonds == {0: {1: raw_bond / 65535}}
+
+    def test_zero_valued_entries_are_dropped(self):
+        mg = _metagraph(lite=False, weights={0: {1: 0.0}})
+
+        assert _make_extractor()._build_weights(mg) is None
+
+    def test_has_any_weights_tracks_incoming_weights(self):
+        mg = _metagraph(lite=False, weights={0: {1: 0.25}})
+        extractor = _make_extractor()
+
+        snapshots = [
+            extractor._build_single_neuron_snapshot(
+                metagraph=mg,
+                neuron=neuron,
+                total_subnet_stake=30.0,
+                mechanisms=[],
+                block=_block(),
+            )
+            for neuron in mg.neurons
+        ]
+
+        # uid 1 is weighted by uid 0; nobody weights uid 0.
+        assert snapshots[0].has_any_weights is False
+        assert snapshots[1].has_any_weights is True
 
 
 def test_dummy_mechanism_metrics_constructible_for_test_coverage():
@@ -202,48 +249,39 @@ def test_dummy_mechanism_metrics_constructible_for_test_coverage():
 
 
 class TestDividendDataPoints:
-    """alpha/tao dividends (metagraph index 71) are mapped from per-hotkey
-    lists onto each neuron by hotkey."""
+    """alpha/tao dividends are reported per hotkey by the chain and mapped onto
+    each neuron by hotkey."""
 
     @staticmethod
-    def _metagraph_with_dividends() -> SimpleNamespace:
-        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])
-        # `_build_neuron_snapshots` parses `metagraph.n` via `.item()`; the bare
-        # int from _fake_metagraph is not subscriptable, so give it an .item().
-        mg.n = SimpleNamespace(item=lambda: 2)
-        # Distinct hotkeys per uid for an unambiguous mapping (default fake reuses one).
-        mg.axons = [_fake_axon(hotkey="5AAA"), _fake_axon(hotkey="5BBB")]
-        mg.alpha_dividends_per_hotkey = [("5AAA", 1.5), ("5BBB", 2.5)]
-        mg.tao_dividends_per_hotkey = [("5AAA", 0.15), ("5BBB", 0.25)]
-        return mg
-
-    def test_build_dividends_maps_from_metagraph(self):
-        mg = self._metagraph_with_dividends()
-        alpha_map, tao_map = MetagraphExtractor._build_dividends_maps(mg)
-        assert alpha_map == {"5AAA": 1.5, "5BBB": 2.5}
-        assert tao_map == {"5AAA": 0.15, "5BBB": 0.25}
-
-    def test_build_dividends_maps_empty_when_absent(self):
-        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])  # no *_dividends_per_hotkey attrs
-        alpha_map, tao_map = MetagraphExtractor._build_dividends_maps(mg)
-        assert alpha_map == {}
-        assert tao_map == {}
+    def _metagraph_with_dividends() -> SubnetMetagraph:
+        return _metagraph(
+            neurons=[_neuron(0, hotkey="5AAA"), _neuron(1, hotkey="5BBB")],
+            alpha_dividends_per_hotkey={"5AAA": 1.5, "5BBB": 2.5},
+            tao_dividends_per_hotkey={"5AAA": 0.15, "5BBB": 0.25},
+        )
 
     def test_dividends_mapped_by_hotkey_end_to_end(self):
-        mg = self._metagraph_with_dividends()
-        block = Block(block_number=1234, timestamp=datetime.now(tz=UTC))
-        neurons = _make_extractor()._build_neuron_snapshots([mg], block)
+        neurons = _make_extractor()._build_neuron_snapshots([self._metagraph_with_dividends()], _block())
 
         assert neurons[0].alpha_dividends == 1.5
         assert neurons[0].tao_dividends == 0.15
         assert neurons[1].alpha_dividends == 2.5
         assert neurons[1].tao_dividends == 0.25
 
-    def test_dividends_default_zero_when_metagraph_omits_them(self):
-        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])  # no *_dividends_per_hotkey attrs
-        mg.n = SimpleNamespace(item=lambda: 2)
-        block = Block(block_number=1234, timestamp=datetime.now(tz=UTC))
-        neurons = _make_extractor()._build_neuron_snapshots([mg], block)
+    def test_a_hotkey_holding_several_uids_receives_the_same_dividend(self):
+        # The chain pays per hotkey, not per uid slot.
+        mg = _metagraph(
+            neurons=[_neuron(0, hotkey="5AAA"), _neuron(1, hotkey="5AAA")],
+            alpha_dividends_per_hotkey={"5AAA": 1.5},
+        )
+
+        neurons = _make_extractor()._build_neuron_snapshots([mg], _block())
+
+        assert neurons[0].alpha_dividends == 1.5
+        assert neurons[1].alpha_dividends == 1.5
+
+    def test_dividends_default_zero_when_the_metagraph_omits_them(self):
+        neurons = _make_extractor()._build_neuron_snapshots([_metagraph()], _block())
 
         assert neurons[0].alpha_dividends == 0.0
         assert neurons[0].tao_dividends == 0.0
@@ -255,29 +293,43 @@ class TestSubnetApyFields:
     """moving_price and tempo are read onto the subnet DTO."""
 
     def test_moving_price_and_tempo_extracted(self):
-        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])
-        mg.pool = SimpleNamespace(moving_price=0.0345)
-        mg.tempo = 360
-
-        subnet = _make_extractor()._build_subnet(mg)
+        subnet = _make_extractor()._build_subnet(_metagraph(moving_price=0.0345, tempo=360))
 
         assert subnet.moving_price == pytest.approx(0.0345)
         assert subnet.tempo == 360
 
-    def test_tempo_falls_back_to_hparams(self):
-        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])
-        mg.pool = SimpleNamespace(moving_price=0.01)
-        mg.tempo = None
-        mg.hparams = SimpleNamespace(tempo=99)
-
-        subnet = _make_extractor()._build_subnet(mg)
-
-        assert subnet.tempo == 99
-
     def test_moving_price_and_tempo_default_zero_when_absent(self):
-        mg = _fake_metagraph(alpha_stake=[10.0, 20.0])  # no pool/tempo attrs (hparams is None)
-
-        subnet = _make_extractor()._build_subnet(mg)
+        subnet = _make_extractor()._build_subnet(_metagraph())
 
         assert subnet.moving_price == 0.0
         assert subnet.tempo == 0
+
+
+class TestImmunity:
+    def test_a_recently_registered_neuron_is_immune(self):
+        mg = _metagraph(immunity_period=500, neurons=[_neuron(0, block_at_registration=1000)])
+        block = Block(block_number=1200, timestamp=datetime.now(tz=UTC))
+
+        snap = _make_extractor()._build_single_neuron_snapshot(
+            metagraph=mg,
+            neuron=mg.neurons[0],
+            total_subnet_stake=10.0,
+            mechanisms=[],
+            block=block,
+        )
+
+        assert snap.is_immune is True
+
+    def test_immunity_lapses_once_the_period_has_passed(self):
+        mg = _metagraph(immunity_period=100, neurons=[_neuron(0, block_at_registration=1000)])
+        block = Block(block_number=1200, timestamp=datetime.now(tz=UTC))
+
+        snap = _make_extractor()._build_single_neuron_snapshot(
+            metagraph=mg,
+            neuron=mg.neurons[0],
+            total_subnet_stake=10.0,
+            mechanisms=[],
+            block=block,
+        )
+
+        assert snap.is_immune is False

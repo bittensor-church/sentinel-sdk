@@ -1,108 +1,89 @@
 """Tests for the DividendsExtractor."""
 
-from unittest.mock import MagicMock
-
 import numpy as np
 import pytest
 
+from sentinel.v1.providers.metagraph import NeuronRecord, SubnetMetagraph
 from sentinel.v1.services.extractors.dividends import (
     DividendRecord,
     DividendsExtractor,
     DividendsResult,
 )
+from sentinel.v1.testing.providers import FakeBlockchainProvider
+
+BLOCK = 100
+NETUID = 1
 
 
-@pytest.fixture
-def mock_subtensor() -> MagicMock:
-    """Create a mock subtensor instance."""
-    return MagicMock()
+def _metagraph(**overrides) -> SubnetMetagraph:
+    """Two validators (uids 0, 1) holding stake and two miners (uids 2, 3) earning incentive."""
+    defaults = {
+        "netuid": NETUID,
+        "block": BLOCK,
+        "lite": False,
+        "bonds": {},
+        "neurons": [
+            NeuronRecord(
+                uid=0,
+                hotkey="hotkey_0",
+                identity_name="Validator A",
+                active=True,
+                validator_permit=True,
+                total_stake=100.0,
+            ),
+            NeuronRecord(
+                uid=1,
+                hotkey="hotkey_1",
+                identity_name="Validator B",
+                active=True,
+                validator_permit=True,
+                total_stake=200.0,
+            ),
+            NeuronRecord(uid=2, hotkey="hotkey_2", active=True, incentive=0.5),
+            NeuronRecord(uid=3, hotkey="hotkey_3", identity_name="Miner D", active=True, incentive=0.5),
+        ],
+    }
+    return SubnetMetagraph(**{**defaults, **overrides})
 
 
-@pytest.fixture
-def mock_metagraph() -> MagicMock:
-    """Create a mock metagraph with test data."""
-    metagraph = MagicMock()
-    metagraph.hotkeys = ["hotkey_0", "hotkey_1", "hotkey_2", "hotkey_3"]
-    metagraph.identities = [
-        {"name": "Validator A"},
-        {"name": "Validator B"},
-        None,
-        {"name": "Miner D"},
-    ]
-    metagraph.incentive = [0.0, 0.0, 0.5, 0.5]  # Only miners have incentives
-    metagraph.total_stake = [100.0, 200.0, 0.0, 0.0]  # Only validators have stake
-    metagraph.active = [True, True, True, True]
-    metagraph.validator_permit = [True, True, False, False]  # 0, 1 are validators
-    return metagraph
-
-
-@pytest.fixture
-def mock_hyperparams() -> MagicMock:
-    """Create mock hyperparameters."""
-    hyperparams = MagicMock()
-    hyperparams.yuma_version = 3  # Yuma3
-    return hyperparams
+def _provider(metagraph: SubnetMetagraph | None, yuma_version: int = 3) -> FakeBlockchainProvider:
+    provider = FakeBlockchainProvider().with_hyperparams(BLOCK, NETUID, {"yuma_version": yuma_version})
+    if metagraph is not None:
+        provider.with_metagraph(metagraph, block_number=BLOCK)
+    return provider
 
 
 class TestDividendsExtractor:
     """Tests for DividendsExtractor."""
 
-    def test_extract_returns_dividends_result(
-        self,
-        mock_subtensor: MagicMock,
-        mock_metagraph: MagicMock,
-        mock_hyperparams: MagicMock,
-    ):
-        """Test that extract returns a DividendsResult."""
-        mock_subtensor.metagraph.return_value = mock_metagraph
-        mock_subtensor.get_subnet_hyperparameters.return_value = mock_hyperparams
-        mock_subtensor.bonds.return_value = []
-
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
+    def test_extract_returns_dividends_result(self):
+        extractor = DividendsExtractor(_provider(_metagraph()), block_number=BLOCK, netuid=NETUID)
         result = extractor.extract()
 
         assert isinstance(result, DividendsResult)
         assert isinstance(result.records, list)
         assert result.mechid == 0
 
-    def test_extract_empty_metagraph(self, mock_subtensor: MagicMock):
-        """Test that extract handles None metagraph."""
-        mock_subtensor.metagraph.return_value = None
-
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
+    def test_extract_missing_metagraph(self):
+        """A subnet that does not exist at the block yields no records rather than an error."""
+        extractor = DividendsExtractor(_provider(None), block_number=BLOCK, netuid=NETUID)
         result = extractor.extract()
 
         assert result.records == []
         assert result.yuma3_enabled is True
 
-    def test_extract_empty_hotkeys(
-        self,
-        mock_subtensor: MagicMock,
-        mock_hyperparams: MagicMock,
-    ):
-        """Test that extract handles metagraph with no hotkeys."""
-        metagraph = MagicMock()
-        metagraph.hotkeys = []
-        mock_subtensor.metagraph.return_value = metagraph
-        mock_subtensor.get_subnet_hyperparameters.return_value = mock_hyperparams
+    def test_extract_empty_metagraph(self):
+        """A registered subnet with no neurons yields no records."""
+        extractor = DividendsExtractor(
+            _provider(_metagraph(neurons=[])),
+            block_number=BLOCK,
+            netuid=NETUID,
+        )
 
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
-        result = extractor.extract()
+        assert extractor.extract().records == []
 
-        assert result.records == []
-
-    def test_extract_creates_dividend_records(
-        self,
-        mock_subtensor: MagicMock,
-        mock_metagraph: MagicMock,
-        mock_hyperparams: MagicMock,
-    ):
-        """Test that extract creates DividendRecord for each UID."""
-        mock_subtensor.metagraph.return_value = mock_metagraph
-        mock_subtensor.get_subnet_hyperparameters.return_value = mock_hyperparams
-        mock_subtensor.bonds.return_value = []
-
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
+    def test_extract_creates_dividend_records(self):
+        extractor = DividendsExtractor(_provider(_metagraph()), block_number=BLOCK, netuid=NETUID)
         result = extractor.extract()
 
         assert len(result.records) == 4
@@ -111,56 +92,74 @@ class TestDividendsExtractor:
         assert result.records[0].identity_name == "Validator A"
         assert result.records[1].identity_name == "Validator B"
         assert result.records[2].identity_name is None
+        assert result.records[0].stake == 100.0
 
-    def test_yuma_version_detection(
-        self,
-        mock_subtensor: MagicMock,
-        mock_metagraph: MagicMock,
-    ):
-        """Test that yuma3_enabled is correctly detected from hyperparams."""
-        mock_subtensor.metagraph.return_value = mock_metagraph
-        mock_subtensor.bonds.return_value = []
+    @pytest.mark.parametrize(("yuma_version", "expected"), [(3, True), (2, False)])
+    def test_yuma_version_detection(self, yuma_version: int, expected: bool):
+        """yuma3_enabled is read from the subnet's hyperparameters."""
+        extractor = DividendsExtractor(
+            _provider(_metagraph(), yuma_version=yuma_version),
+            block_number=BLOCK,
+            netuid=NETUID,
+        )
 
-        # Test Yuma3 (version = 3)
-        hyperparams_v3 = MagicMock()
-        hyperparams_v3.yuma_version = 3
-        mock_subtensor.get_subnet_hyperparameters.return_value = hyperparams_v3
+        assert extractor.extract().yuma3_enabled is expected
 
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
+    def test_yuma3_is_assumed_when_hyperparams_are_unavailable(self):
+        provider = FakeBlockchainProvider().with_metagraph(_metagraph(), block_number=BLOCK)
+        extractor = DividendsExtractor(provider, block_number=BLOCK, netuid=NETUID)
+
+        assert extractor.extract().yuma3_enabled is True
+
+    def test_missing_bonds_are_reported_rather_than_scored_as_zero(self):
+        """Without bonds every dividend would come out zero, which reads as a real
+        result — fail loudly instead."""
+        extractor = DividendsExtractor(
+            _provider(_metagraph(bonds=None)),
+            block_number=BLOCK,
+            netuid=NETUID,
+        )
+
+        with pytest.raises(ValueError, match="Bonds unavailable"):
+            extractor.extract()
+
+    def test_dividends_follow_bonds_and_incentive(self):
+        """Validator 1 bonds more heavily to the miners and holds more stake, so it
+        must take the larger share."""
+        metagraph = _metagraph(
+            bonds={
+                0: {2: 100.0, 3: 50.0},
+                1: {2: 80.0, 3: 120.0},
+            },
+        )
+        extractor = DividendsExtractor(_provider(metagraph), block_number=BLOCK, netuid=NETUID)
+
         result = extractor.extract()
-        assert result.yuma3_enabled is True
+        by_uid = {r.uid: r.dividend for r in result.records}
 
-        # Test Yuma2 (version = 2)
-        hyperparams_v2 = MagicMock()
-        hyperparams_v2.yuma_version = 2
-        mock_subtensor.get_subnet_hyperparameters.return_value = hyperparams_v2
-
-        result = extractor.extract()
-        assert result.yuma3_enabled is False
+        assert np.isclose(sum(by_uid.values()), 1.0)
+        assert by_uid[1] > by_uid[0] > 0
+        # Miners hold no validator permit, so they earn no dividends.
+        assert by_uid[2] == 0.0
+        assert by_uid[3] == 0.0
 
 
-class TestSpareToDense:
-    """Tests for _sparse_to_dense method."""
+class TestToDense:
+    """Tests for the sparse-to-dense bond conversion."""
 
-    def test_sparse_to_dense_empty(self, mock_subtensor: MagicMock):
-        """Test sparse to dense with empty bonds."""
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
-        result = extractor._sparse_to_dense([], num_uids=4)
+    def test_to_dense_empty(self):
+        result = DividendsExtractor._to_dense({}, num_uids=4)
 
         assert result.shape == (4, 4)
         assert np.all(result == 0)
 
-    def test_sparse_to_dense_with_bonds(self, mock_subtensor: MagicMock):
-        """Test sparse to dense with actual bonds."""
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
+    def test_to_dense_with_bonds(self):
+        sparse_bonds = {
+            0: {2: 100.0, 3: 50.0},  # Validator 0 bonds to miners 2, 3
+            1: {2: 80.0, 3: 120.0},  # Validator 1 bonds to miners 2, 3
+        }
 
-        # Sparse format: [(uid, [(target_uid, bond_value), ...])]
-        sparse_bonds = [
-            (0, [(2, 100.0), (3, 50.0)]),  # Validator 0 bonds to miners 2, 3
-            (1, [(2, 80.0), (3, 120.0)]),  # Validator 1 bonds to miners 2, 3
-        ]
-
-        result = extractor._sparse_to_dense(sparse_bonds, num_uids=4)
+        result = DividendsExtractor._to_dense(sparse_bonds, num_uids=4)
 
         assert result.shape == (4, 4)
         assert result[0, 2] == 100.0
@@ -169,14 +168,18 @@ class TestSpareToDense:
         assert result[1, 3] == 120.0
         assert result[2, 0] == 0  # Miners don't bond
 
+    def test_to_dense_ignores_uids_outside_the_matrix(self):
+        """A bond referencing a uid beyond the graph must not raise or resize."""
+        result = DividendsExtractor._to_dense({0: {9: 1.0}, 9: {0: 1.0}}, num_uids=2)
+
+        assert result.shape == (2, 2)
+        assert np.all(result == 0)
+
 
 class TestCalculateDividends:
     """Tests for _calculate_dividends method."""
 
-    def test_yuma3_calculation(self, mock_subtensor: MagicMock):
-        """Test Yuma3 dividend calculation."""
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
-
+    def test_yuma3_calculation(self):
         # 2 validators, 2 miners
         bonds = np.array(
             [
@@ -189,7 +192,7 @@ class TestCalculateDividends:
         incentives = np.array([0.0, 0.0, 0.6, 0.4])  # Miners have incentives
         active_stake = np.array([0.4, 0.6, 0.0, 0.0])  # Normalized validator stake
 
-        dividends = extractor._calculate_dividends(
+        dividends = DividendsExtractor._calculate_dividends(
             bonds,
             incentives,
             active_stake,
@@ -202,13 +205,38 @@ class TestCalculateDividends:
         assert dividends[2] == 0
         assert dividends[3] == 0
 
-    def test_yuma2_calculation(self, mock_subtensor: MagicMock):
-        """Test Yuma2 dividend calculation (B^T @ I)."""
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
+    def test_bond_scale_does_not_change_the_result(self):
+        """v11 reports bonds scaled to 0..1 where v10 reported raw u16; both Yuma
+        paths renormalize, so a constant factor must cancel out."""
+        bonds = np.array(
+            [
+                [0.0, 0.0, 100.0, 50.0],
+                [0.0, 0.0, 80.0, 120.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ]
+        )
+        incentives = np.array([0.0, 0.0, 0.6, 0.4])
+        active_stake = np.array([0.4, 0.6, 0.0, 0.0])
 
+        scaled = DividendsExtractor._calculate_dividends(
+            bonds / 65535,
+            incentives,
+            active_stake,
+            yuma3_enabled=True,
+        )
+        raw = DividendsExtractor._calculate_dividends(
+            bonds,
+            incentives,
+            active_stake,
+            yuma3_enabled=True,
+        )
+
+        assert np.allclose(scaled, raw)
+
+    def test_yuma2_calculation(self):
         # Yuma2: dividends = B^T @ I
         # B^T[i,j] = B[j,i], so dividends[i] = sum_j(B[j,i] * I[j])
-        # Use a simpler matrix where B^T @ I produces non-zero results
         bonds = np.array(
             [
                 [0.5, 0.3, 0.2, 0.0],
@@ -220,7 +248,7 @@ class TestCalculateDividends:
         incentives = np.array([0.3, 0.3, 0.2, 0.2])
         active_stake = np.array([0.4, 0.6, 0.0, 0.0])
 
-        dividends = extractor._calculate_dividends(
+        dividends = DividendsExtractor._calculate_dividends(
             bonds,
             incentives,
             active_stake,
@@ -232,48 +260,13 @@ class TestCalculateDividends:
         # B^T @ I produces a result vector
         assert dividends.shape == (4,)
 
-    def test_zero_dividends_sum(self, mock_subtensor: MagicMock):
-        """Test handling when all dividends are zero."""
-        extractor = DividendsExtractor(mock_subtensor, block_number=100, netuid=1)
-
-        bonds = np.zeros((4, 4))
-        incentives = np.zeros(4)
-        active_stake = np.zeros(4)
-
-        dividends = extractor._calculate_dividends(
-            bonds,
-            incentives,
-            active_stake,
+    def test_zero_dividends_sum(self):
+        """Handling when all dividends are zero — no division by zero."""
+        dividends = DividendsExtractor._calculate_dividends(
+            np.zeros((4, 4)),
+            np.zeros(4),
+            np.zeros(4),
             yuma3_enabled=True,
         )
 
-        # Should handle gracefully without division by zero
         assert np.all(dividends == 0)
-
-
-class TestGetIdentityName:
-    """Tests for _get_identity_name static method."""
-
-    def test_identity_name_from_dict(self):
-        """Test extracting name from dict identity."""
-        identity = {"name": "Test Validator"}
-        result = DividendsExtractor._get_identity_name(identity)
-        assert result == "Test Validator"
-
-    def test_identity_name_from_object(self):
-        """Test extracting name from object identity."""
-        identity = MagicMock()
-        identity.name = "Object Validator"
-        result = DividendsExtractor._get_identity_name(identity)
-        assert result == "Object Validator"
-
-    def test_identity_name_none(self):
-        """Test handling None identity."""
-        result = DividendsExtractor._get_identity_name(None)
-        assert result is None
-
-    def test_identity_no_name_attribute(self):
-        """Test handling object without name attribute."""
-        identity = MagicMock(spec=[])  # Empty spec, no attributes
-        result = DividendsExtractor._get_identity_name(identity)
-        assert result is None
