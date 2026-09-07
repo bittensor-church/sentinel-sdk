@@ -9,6 +9,26 @@ upcoming release can be found in [changelog.d](changelog.d).
 
 <!-- towncrier release notes start -->
 
+## [0.2.7](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.7) - 2026-09-07
+
+### Removed
+
+- `sentinel runtime info` no longer reports the impl name/version, authoring version, transaction version or state version. The v11 SDK exposes no block-pinned equivalent of the `state_getRuntimeVersion` RPC, so only the spec name and spec version (read from `System.LastRuntimeUpgrade`) remain.
+
+### Changed
+
+- Migrated to bittensor SDK v11 (`bittensor>=11.1,<12`), which is a ground-up rewrite of the SDK: `bittensor.core.*` no longer exists, and `Metagraph` is now a neuron-list dataclass rather than a set of tensor columns.
+
+  Providers now return `sentinel.v1.providers.metagraph.SubnetMetagraph`, a provider-neutral model, instead of the SDK's own metagraph type. `BlockchainProvider.get_subnet_hyperparams` returns a plain dict, and weight and bond matrices are sparse `{source_uid: {target_uid: value}}` maps rather than dense arrays. `DividendsExtractor` now takes a `BlockchainProvider` rather than a raw `Subtensor`.
+
+  `numpy` is now declared explicitly; it used to arrive as a transitive dependency of bittensor v10.
+- `BittensorProvider` resolves block hashes to block numbers internally, since the v11 SDK addresses blocks by number. Hashes passed to `get_events`, `get_extrinsics` and `get_extrinsic_status` must come from `get_block_hash` on the same provider instance; an unrecognised hash now raises `ValueError` rather than silently reporting an empty block.
+
+### Added
+
+- `sentinel.v1.testing` ships `NeuronRecordFactory` and `SubnetMetagraphFactory` for the provider-neutral metagraph models, with reproducible seeding, bounded scores and stakes, and sequential neuron UIDs. `build_full()` supplies matching weight and bond matrices, including empty subnets, while `build_with_roles()` creates validators bonding to miners for dividend extraction tests. ([#metagraph-factories](https://github.com/bittensor-church/sentinel-sdk/issues/metagraph-factories))
+
+
 ## [0.2.6](https://github.com/bittensor-church/sentinel-sdk/releases/tag/v0.2.6) - 2026-08-03
 
 ### Added
