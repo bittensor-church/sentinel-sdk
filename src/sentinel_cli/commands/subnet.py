@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Annotated, NoReturn
 
-import bittensor
 import typer
 from rich.table import Table
 
@@ -13,7 +12,10 @@ if TYPE_CHECKING:
     from sentinel.v1.dto import HyperparametersDTO
     from sentinel.v1.services.extractors.metagraph.dto import FullSubnetSnapshot
 
-from async_substrate_interface.errors import StateDiscardedError  # type: ignore[import-untyped]
+# Not re-exported at the bittensor top level; this is the same path the SDK
+# itself imports it from. v11 already retries pruned reads against its archive
+# pool, so this only surfaces when the archive nodes cannot answer either.
+from bittensor._transport.errors import StateDiscardedError
 from pylon_client.artanis import BasePylonException
 
 from sentinel.v1.models.subnet import Subnet
@@ -350,7 +352,6 @@ def dividends_manual(
 
     netuid = ctx.obj["netuid"]
     block_number = ctx.obj["block_number"]
-    network = ctx.obj["network"]
     mechid = ctx.obj["mechid"]
     provider: BlockchainProvider = ctx.obj["provider"]
 
@@ -359,8 +360,7 @@ def dividends_manual(
     except BasePylonException as e:
         _handle_pylon_error(e)
 
-    subtensor = bittensor.Subtensor(network=network)
-    extractor = DividendsExtractor(subtensor, resolved_block, netuid, mechid)
+    extractor = DividendsExtractor(provider, resolved_block, netuid, mechid)
     result = extractor.extract()
 
     if not result.records:

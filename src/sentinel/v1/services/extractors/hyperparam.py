@@ -1,7 +1,5 @@
 """Hyperparameter extractor."""
 
-from dataclasses import asdict
-
 from sentinel.v1.dto import HyperparametersDTO
 from sentinel.v1.providers.base import BlockchainProvider
 
@@ -39,6 +37,4 @@ class HyperparamExtractor:
             msg = f"Hyperparameters not found for block {self.block_number} and netuid {self.netuid}"
             raise ValueError(msg)
 
-        # Convert bittensor SubnetHyperparameters dataclass to dict for Pydantic validation
-        hyperparameters_dict = asdict(hyperparameters)  # type: ignore[arg-type]
-        return HyperparametersDTO.model_validate(hyperparameters_dict)
+        return HyperparametersDTO.model_validate(hyperparameters)

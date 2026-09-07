@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 import numpy as np
-from bittensor.core.subtensor import Subtensor  # type: ignore[import-untyped]
+
+from sentinel.v1.providers.base import BlockchainProvider
 
 YUMA_VERSION_3 = 3
 
@@ -37,43 +38,52 @@ class DividendsExtractor:
         4. normalize(dividends) so Σ_i dividends[i] = 1
     """
 
-    def __init__(self, subtensor: Subtensor, block_number: int, netuid: int, mechid: int = 0) -> None:
-        self.subtensor = subtensor
+    def __init__(
+        self,
+        provider: BlockchainProvider,
+        block_number: int,
+        netuid: int,
+        mechid: int = 0,
+    ) -> None:
+        self.provider = provider
         self.block_number = block_number
         self.netuid = netuid
         self.mechid = mechid
 
     def extract(self) -> DividendsResult:
         """Extract dividends for each identity in the subnet."""
-        metagraph = self.subtensor.metagraph(netuid=self.netuid, block=self.block_number, mechid=self.mechid)
+        metagraph = self.provider.get_metagraph(
+            netuid=self.netuid,
+            block_number=self.block_number,
+            mechid=self.mechid,
+            lite=False,
+        )
         if metagraph is None:
             return DividendsResult(records=[], yuma3_enabled=True, mechid=self.mechid)
 
         # Check which Yuma version is enabled (yuma_version: 1, 2, or 3)
-        hyperparams = self.subtensor.get_subnet_hyperparameters(netuid=self.netuid, block=self.block_number)
-
-        yuma_version = getattr(hyperparams, "yuma_version", YUMA_VERSION_3) if hyperparams else YUMA_VERSION_3
+        hyperparams = self.provider.get_subnet_hyperparams(block_number=self.block_number, netuid=self.netuid)
+        yuma_version = (hyperparams or {}).get("yuma_version", YUMA_VERSION_3)
         yuma3_enabled = yuma_version == YUMA_VERSION_3
 
-        num_uids = len(metagraph.hotkeys)
+        num_uids = len(metagraph)
         if num_uids == 0:
             return DividendsResult(records=[], yuma3_enabled=yuma3_enabled, mechid=self.mechid)
 
-        # Get incentives from metagraph
-        incentives = np.array(metagraph.incentive, dtype=np.float64)
+        if metagraph.bonds is None:
+            msg = (
+                f"Bonds unavailable for netuid {self.netuid} at block {self.block_number}; "
+                f"dividends cannot be derived without them."
+            )
+            raise ValueError(msg)
 
-        # Get bonds matrix - sparse format: list of (uid, [(target_uid, bond_value), ...])
-        bonds_sparse = self.subtensor.bonds(netuid=self.netuid, block=self.block_number)
-
-        # Convert sparse bonds to dense matrix (validator x miner)
-        bonds_matrix = self._sparse_to_dense(bonds_sparse, num_uids)
-
-        # Get active stake for each validator (filtered by active status and validator permit)
-        total_stake = np.array([float(s) for s in metagraph.total_stake], dtype=np.float64)
-        active_mask = np.array(metagraph.active, dtype=bool)
-        validator_mask = np.array(metagraph.validator_permit, dtype=bool)
+        incentives = np.array([n.incentive for n in metagraph.neurons], dtype=np.float64)
+        bonds_matrix = self._to_dense(metagraph.bonds, num_uids)
 
         # Active stake = total_stake masked to only active validators
+        total_stake = np.array([n.total_stake for n in metagraph.neurons], dtype=np.float64)
+        active_mask = np.array([n.active for n in metagraph.neurons], dtype=bool)
+        validator_mask = np.array([n.validator_permit for n in metagraph.neurons], dtype=bool)
         active_stake = total_stake * active_mask * validator_mask
 
         # Normalize active stake
@@ -81,7 +91,6 @@ class DividendsExtractor:
         if stake_sum > 0:
             active_stake = active_stake / stake_sum
 
-        # Calculate dividends using appropriate Yuma formula
         dividends = self._calculate_dividends(
             bonds_matrix,
             incentives,
@@ -89,37 +98,38 @@ class DividendsExtractor:
             yuma3_enabled=yuma3_enabled,
         )
 
-        # Build result records
-        results = []
-        for uid in range(num_uids):
-            identity = metagraph.identities[uid] if uid < len(metagraph.identities) else None
-            identity_name = self._get_identity_name(identity)
-
-            results.append(
-                DividendRecord(
-                    uid=uid,
-                    hotkey=metagraph.hotkeys[uid],
-                    identity_name=identity_name,
-                    dividend=dividends[uid],
-                    stake=float(total_stake[uid]),
-                ),
+        records = [
+            DividendRecord(
+                uid=neuron.uid,
+                hotkey=neuron.hotkey,
+                identity_name=neuron.identity_name,
+                dividend=dividends[neuron.uid],
+                stake=neuron.total_stake,
             )
+            for neuron in metagraph.neurons
+        ]
 
-        return DividendsResult(records=results, yuma3_enabled=yuma3_enabled, mechid=self.mechid)
+        return DividendsResult(records=records, yuma3_enabled=yuma3_enabled, mechid=self.mechid)
 
-    def _sparse_to_dense(self, bonds_sparse: list, num_uids: int) -> np.ndarray:
-        """Convert sparse bonds to dense matrix."""
+    @staticmethod
+    def _to_dense(bonds: dict[int, dict[int, float]], num_uids: int) -> np.ndarray:
+        """
+        Expand the sparse ``{validator: {miner: bond}}`` map into a dense matrix.
+
+        The absolute bond scale does not matter here: both Yuma paths below
+        renormalize, so a constant factor cancels out.
+        """
         bonds_matrix = np.zeros((num_uids, num_uids), dtype=np.float64)
 
-        for uid, targets in bonds_sparse:
-            for target_uid, bond_value in targets:
+        for uid, targets in bonds.items():
+            for target_uid, bond_value in targets.items():
                 if uid < num_uids and target_uid < num_uids:
                     bonds_matrix[uid, target_uid] = bond_value
 
         return bonds_matrix
 
+    @staticmethod
     def _calculate_dividends(
-        self,
         bonds: np.ndarray,
         incentives: np.ndarray,
         active_stake: np.ndarray,
@@ -157,10 +167,3 @@ class DividendsExtractor:
             dividends = dividends / dividends_sum
 
         return dividends
-
-    @staticmethod
-    def _get_identity_name(identity: dict | object | None) -> str | None:
-        """Extract name from identity, handling both dict and object types."""
-        if not identity:
-            return None
-        return identity["name"] if isinstance(identity, dict) else getattr(identity, "name", None)

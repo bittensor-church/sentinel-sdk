@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
+from typing import Any
 
-import numpy as np
 import structlog
-from bittensor.core.metagraph import Metagraph
 
 from sentinel.v1.providers.base import BlockchainProvider
+from sentinel.v1.providers.metagraph import NeuronRecord, SubnetMetagraph
 from sentinel.v1.services.extractors.metagraph.dto import (
     Block,
     BlockNumber,
@@ -50,8 +50,8 @@ class MetagraphExtractor:
         Returns a FullSubnetSnapshot with all neuron data and optional tensor data.
         """
         if self.mechid is not None:
-            metagraphs = [self.extract_by_mech_id(mechid=self.mechid)]
-            metagraphs = [m for m in metagraphs if m is not None]
+            metagraph = self.extract_by_mech_id(mechid=self.mechid)
+            metagraphs = [metagraph] if metagraph else []
         else:
             metagraphs = self.extract_all_mechids()
 
@@ -65,18 +65,18 @@ class MetagraphExtractor:
 
         return self._build_full_snapshot(metagraphs)
 
-    def extract_raw(self) -> list[Metagraph]:
+    def extract_raw(self) -> list[SubnetMetagraph]:
         """
         Extract raw metagraph objects without DTO conversion.
 
-        Returns list of Metagraph objects for all mechanisms.
+        Returns list of SubnetMetagraph objects for all mechanisms.
         """
         if self.mechid is not None:
             metagraph = self.extract_by_mech_id(mechid=self.mechid)
             return [metagraph] if metagraph else []
         return self.extract_all_mechids()
 
-    def extract_by_mech_id(self, mechid: int) -> Metagraph | None:
+    def extract_by_mech_id(self, mechid: int) -> SubnetMetagraph | None:
         """
         Extract metagraph for the given block number, netuid, and mechid.
         """
@@ -95,7 +95,7 @@ class MetagraphExtractor:
             )
         return metagraph
 
-    def extract_all_mechids(self) -> list[Metagraph]:
+    def extract_all_mechids(self) -> list[SubnetMetagraph]:
         """
         Extract metagraphs for all mechids for the given block number and netuid.
         """
@@ -107,12 +107,12 @@ class MetagraphExtractor:
                 metagraphs.append(metagraph)
         return metagraphs
 
-    def _build_full_snapshot(self, metagraphs: list[Metagraph]) -> FullSubnetSnapshot:
+    def _build_full_snapshot(self, metagraphs: list[SubnetMetagraph]) -> FullSubnetSnapshot:
         """
         Build a FullSubnetSnapshot from extracted metagraph data.
 
         Args:
-            metagraphs: List of Metagraph objects (one per mechanism)
+            metagraphs: List of SubnetMetagraph objects (one per mechanism)
 
         Returns:
             FullSubnetSnapshot with all neuron data
@@ -154,15 +154,15 @@ class MetagraphExtractor:
             collaterals=None,
         )
 
-    def _build_block(self, metagraph: Metagraph) -> Block:
+    def _build_block(self, metagraph: SubnetMetagraph) -> Block:
         """Build Block DTO from metagraph."""
-        block_number = int(metagraph.block.item()) if hasattr(metagraph.block, "item") else int(metagraph.block)
+        block_number = int(metagraph.block)
 
         timestamp = datetime.now(tz=UTC)
         if not self.skip_timestamp:
             # Get block timestamp from provider (adds extra RPC call)
             block_info = self.subtensor.get_block_info(block_number=block_number)
-            if block_info and hasattr(block_info, "timestamp"):
+            if block_info and getattr(block_info, "timestamp", None):
                 timestamp = block_info.timestamp
 
         return Block(
@@ -170,16 +170,12 @@ class MetagraphExtractor:
             timestamp=timestamp,
         )
 
-    def _build_subnet(self, metagraph: Metagraph) -> SubnetWithOwner:
+    def _build_subnet(self, metagraph: SubnetMetagraph) -> SubnetWithOwner:
         """Build SubnetWithOwner DTO from metagraph."""
-        # Get subnet name from metagraph if available
-        subnet_name = getattr(metagraph, "name", "") or ""
-
-        # Build owner hotkey if available
         owner_hotkey = None
-        if hasattr(metagraph, "owner_hotkey") and metagraph.owner_hotkey:
+        if metagraph.owner_hotkey:
             owner_coldkey = None
-            if hasattr(metagraph, "owner_coldkey") and metagraph.owner_coldkey:
+            if metagraph.owner_coldkey:
                 owner_coldkey = Coldkey(
                     id=0,  # Placeholder - would come from DB
                     coldkey=metagraph.owner_coldkey,
@@ -192,10 +188,10 @@ class MetagraphExtractor:
 
         return SubnetWithOwner(
             netuid=metagraph.netuid,
-            name=subnet_name,
-            alpha_out_emission=self._read_alpha_out_emission(metagraph),
-            moving_price=self._read_moving_price(metagraph),
-            tempo=self._read_tempo(metagraph),
+            name=metagraph.name,
+            alpha_out_emission=metagraph.alpha_out_emission,
+            moving_price=metagraph.moving_price,
+            tempo=metagraph.tempo,
             owner_hotkey_id=None,
             registered_at=datetime.now(tz=UTC),  # Would come from chain
             owner_hotkey=owner_hotkey,
@@ -203,7 +199,7 @@ class MetagraphExtractor:
 
     def _build_neuron_snapshots(
         self,
-        metagraphs: list[Metagraph],
+        metagraphs: list[SubnetMetagraph],
         block: Block,
     ) -> list[NeuronSnapshotFull]:
         """
@@ -212,103 +208,67 @@ class MetagraphExtractor:
         Combines data from all mechanism metagraphs into unified neuron snapshots.
         """
         base_metagraph = metagraphs[0]
-        n_neurons = int(base_metagraph.n.item()) if hasattr(base_metagraph.n, "item") else int(base_metagraph.n[0])
 
         # Calculate total stake for normalization
-        stakes = self._to_list(getattr(base_metagraph, "stake", None))
-        total_subnet_stake = sum(stakes) if stakes else 1.0
-
-        alpha_div_map, tao_div_map = self._build_dividends_maps(base_metagraph)
+        total_subnet_stake = base_metagraph.total_stake_sum() or 1.0
 
         neurons: list[NeuronSnapshotFull] = []
 
-        for uid in range(n_neurons):
+        for neuron in base_metagraph.neurons:
             # Build mechanism metrics from all metagraphs
-            mechanisms = []
-            for mech_idx, mg in enumerate(metagraphs):
-                mech_metrics = self._build_mechanism_metrics(mg, uid, mech_idx)
-                mechanisms.append(mech_metrics)
+            mechanisms = [
+                self._build_mechanism_metrics(mg, neuron.uid, mech_idx) for mech_idx, mg in enumerate(metagraphs)
+            ]
 
-            # Get base neuron data from first metagraph
-            neuron_snapshot = self._build_single_neuron_snapshot(
-                metagraph=base_metagraph,
-                uid=uid,
-                total_subnet_stake=total_subnet_stake,
-                mechanisms=mechanisms,
-                block=block,
-                alpha_div_map=alpha_div_map,
-                tao_div_map=tao_div_map,
+            neurons.append(
+                self._build_single_neuron_snapshot(
+                    metagraph=base_metagraph,
+                    neuron=neuron,
+                    total_subnet_stake=total_subnet_stake,
+                    mechanisms=mechanisms,
+                    block=block,
+                ),
             )
-            neurons.append(neuron_snapshot)
 
         return neurons
 
     def _build_single_neuron_snapshot(
         self,
-        metagraph: Metagraph,
-        uid: int,
+        metagraph: SubnetMetagraph,
+        neuron: NeuronRecord,
         total_subnet_stake: float,
         mechanisms: list[MechanismMetrics],
         block: Block,
-        alpha_div_map: dict[str, float] | None = None,
-        tao_div_map: dict[str, float] | None = None,
     ) -> NeuronSnapshotFull:
-        """Build a single NeuronSnapshotFull for a given UID."""
-        # Extract arrays as lists. Use getattr defensively: at certain historical
-        # blocks the bittensor SDK returns a Metagraph that hasn't populated all
-        # fields (e.g. when MetagraphInfo runtime calls fall back or partial-sync).
-        stakes = self._to_list(getattr(metagraph, "stake", None))
-        alpha_stakes = self._to_list(getattr(metagraph, "alpha_stake", None))
-        ranks = self._to_list(getattr(metagraph, "ranks", None))
-        trusts = self._to_list(getattr(metagraph, "trust", None))
-        emissions = self._to_list(getattr(metagraph, "emission", None))
-        active = self._to_list(getattr(metagraph, "active", None))
-        validator_permits = self._to_list(getattr(metagraph, "validator_permit", None))
-        block_at_registration = getattr(metagraph, "block_at_registration", []) or []
+        """Build a single NeuronSnapshotFull for a given neuron."""
+        uid = neuron.uid
 
-        # Get axon info
-        axon = metagraph.axons[uid] if uid < len(metagraph.axons) else None
-        hotkey = axon.hotkey if axon else ""
-        coldkey = axon.coldkey if axon else ""
-        axon_address = axon.ip_str() if axon else ""
+        alpha_dividends = metagraph.alpha_dividends_per_hotkey.get(neuron.hotkey, 0.0)
+        tao_dividends = metagraph.tao_dividends_per_hotkey.get(neuron.hotkey, 0.0)
 
-        alpha_div_map = alpha_div_map or {}
-        tao_div_map = tao_div_map or {}
-        alpha_dividends = alpha_div_map.get(hotkey, 0.0)
-        tao_dividends = tao_div_map.get(hotkey, 0.0)
-
-        # Calculate normalized stake
-        stake = stakes[uid] if uid < len(stakes) else 0.0
-        alpha_stake = alpha_stakes[uid] if uid < len(alpha_stakes) else 0.0
-        normalized_stake = stake / total_subnet_stake if total_subnet_stake > 0 else 0.0
+        normalized_stake = neuron.total_stake / total_subnet_stake if total_subnet_stake > 0 else 0.0
 
         # Determine immunity status
-        reg_block = block_at_registration[uid] if uid < len(block_at_registration) else 0
-        immunity_period = getattr(metagraph, "hparams", None)
-        immunity_period = immunity_period.immunity_period if immunity_period else 0
-        is_immune = (block.block_number - reg_block) < immunity_period if reg_block else False
+        reg_block = neuron.block_at_registration
+        is_immune = (block.block_number - reg_block) < metagraph.immunity_period if reg_block else False
 
-        # Check if any weights are set for this neuron
-        has_any_weights = self._check_has_weights(metagraph, uid)
-
-        # Build related objects
         hotkey_dto = HotkeyWithColdkey(
-            hotkey=hotkey,
+            hotkey=neuron.hotkey,
             coldkey=Coldkey(
                 id=0,
-                coldkey=coldkey,
+                coldkey=neuron.coldkey,
                 created_at=datetime.now(tz=UTC),
             )
-            if coldkey
+            if neuron.coldkey
             else None,
         )
 
         subnet_dto = Subnet(
             netuid=metagraph.netuid,
-            name=getattr(metagraph, "name", "") or "",
-            alpha_out_emission=self._read_alpha_out_emission(metagraph),
-            moving_price=self._read_moving_price(metagraph),
-            tempo=self._read_tempo(metagraph),
+            name=metagraph.name,
+            alpha_out_emission=metagraph.alpha_out_emission,
+            moving_price=metagraph.moving_price,
+            tempo=metagraph.tempo,
             owner_hotkey_id=None,
             registered_at=datetime.now(tz=UTC),
         )
@@ -326,19 +286,19 @@ class MetagraphExtractor:
 
         return NeuronSnapshotFull(
             uid=uid,
-            axon_address=axon_address,
-            total_stake=float(stake),
-            alpha_stake=float(alpha_stake),
-            normalized_stake=float(normalized_stake),
+            axon_address=neuron.axon_address,
+            total_stake=neuron.total_stake,
+            alpha_stake=neuron.alpha_stake,
+            normalized_stake=normalized_stake,
             alpha_dividends=alpha_dividends,
             tao_dividends=tao_dividends,
-            rank=float(ranks[uid]) if uid < len(ranks) else 0.0,
-            trust=float(trusts[uid]) if uid < len(trusts) else 0.0,
-            emissions=float(emissions[uid]) if uid < len(emissions) else 0.0,
-            is_active=bool(active[uid]) if uid < len(active) else False,
-            is_validator=bool(validator_permits[uid]) if uid < len(validator_permits) else False,
+            rank=neuron.rank,
+            trust=neuron.trust,
+            emissions=neuron.emission,
+            is_active=neuron.active,
+            is_validator=neuron.validator_permit,
             is_immune=is_immune,
-            has_any_weights=has_any_weights,
+            has_any_weights=metagraph.has_incoming_weights(uid),
             neuron_version=None,
             block_at_registration=reg_block,
             id=uid,  # Placeholder
@@ -349,171 +309,65 @@ class MetagraphExtractor:
             block=block,
         )
 
+    @staticmethod
     def _build_mechanism_metrics(
-        self,
-        metagraph: Metagraph,
+        metagraph: SubnetMetagraph,
         uid: int,
         mech_id: int,
     ) -> MechanismMetrics:
         """Build MechanismMetrics for a neuron from a specific mechanism's metagraph."""
-        incentives = self._to_list(getattr(metagraph, "incentive", None))
-        dividends = self._to_list(getattr(metagraph, "dividends", None))
-        consensus = self._to_list(getattr(metagraph, "consensus", None))
-        validator_trusts = self._to_list(getattr(metagraph, "validator_trust", None))
-        last_updates = self._to_list(getattr(metagraph, "last_update", None))
-
-        # Calculate weights sum for this neuron
-        weights_sum = 0.0
-        if hasattr(metagraph, "weights") and metagraph.weights is not None:
-            weights = metagraph.weights
-            if hasattr(weights, "shape") and len(weights.shape) == 2 and uid < weights.shape[0]:
-                weights_sum = float(np.sum(weights[uid]))
+        neuron = metagraph.neuron(uid)
 
         return MechanismMetrics(
             id=0,  # Placeholder
             snapshot_id=0,  # Placeholder
             mech_id=mech_id,
-            incentive=float(incentives[uid]) if uid < len(incentives) else 0.0,
-            dividend=float(dividends[uid]) if uid < len(dividends) else 0.0,
-            consensus=float(consensus[uid]) if uid < len(consensus) else 0.0,
-            validator_trust=float(validator_trusts[uid]) if uid < len(validator_trusts) else 0.0,
-            weights_sum=weights_sum,
-            last_update=int(last_updates[uid]) if uid < len(last_updates) else 0,
+            incentive=neuron.incentive if neuron else 0.0,
+            dividend=neuron.dividends if neuron else 0.0,
+            consensus=neuron.consensus if neuron else 0.0,
+            validator_trust=neuron.validator_trust if neuron else 0.0,
+            weights_sum=metagraph.weights_sum(uid),
+            last_update=neuron.last_update if neuron else 0,
         )
 
-    def _build_weights(self, metagraph: Metagraph) -> list[Weight] | None:
-        """Build Weight DTOs from metagraph weight matrix."""
-        if not hasattr(metagraph, "weights") or metagraph.weights is None:
+    def _build_weights(self, metagraph: SubnetMetagraph) -> list[Weight] | None:
+        """Build Weight DTOs from the metagraph's weight matrix."""
+        return self._build_matrix_records(metagraph.weights, Weight, "weight")
+
+    def _build_bonds(self, metagraph: SubnetMetagraph) -> list[Bond] | None:
+        """Build Bond DTOs from the metagraph's bond matrix."""
+        return self._build_matrix_records(metagraph.bonds, Bond, "bond")
+
+    def _build_matrix_records(
+        self,
+        matrix: dict[int, dict[int, float]] | None,
+        dto_cls: type,
+        value_field: str,
+    ) -> list | None:
+        """
+        Flatten a sparse ``{source: {target: value}}`` matrix into DTO rows.
+
+        The matrix is already sparse, so only the non-zero entries the chain
+        stores are emitted. None (matrix never fetched) and an all-zero matrix
+        both yield None, matching how the caller treats "nothing to record".
+        """
+        if not matrix:
             return None
 
-        weights = metagraph.weights
-        if not hasattr(weights, "shape") or len(weights.shape) != 2:
-            return None
-
-        weight_records: list[Weight] = []
-        n = weights.shape[0]
-
-        for src_uid in range(n):
-            for tgt_uid in range(weights.shape[1]):
-                weight_val = float(weights[src_uid, tgt_uid])
-                if weight_val > 0:  # Only store non-zero weights
-                    weight_records.append(
-                        Weight(
-                            id=len(weight_records),
-                            source_neuron_uid=src_uid,
-                            target_neuron_uid=tgt_uid,
+        records: list[Any] = []
+        for source_uid, row in matrix.items():
+            for target_uid, value in row.items():
+                if value > 0:
+                    records.append(
+                        dto_cls(
+                            id=len(records),
+                            source_neuron_uid=source_uid,
+                            target_neuron_uid=target_uid,
                             block_number=self.block_number,
                             mech_id=0,
-                            weight=weight_val,
                             created_at=datetime.now(tz=UTC),
-                        )
-                    )
-
-        return weight_records if weight_records else None
-
-    def _build_bonds(self, metagraph: Metagraph) -> list[Bond] | None:
-        """Build Bond DTOs from metagraph bond matrix."""
-        if not hasattr(metagraph, "bonds") or metagraph.bonds is None:
-            return None
-
-        bonds = metagraph.bonds
-        if not hasattr(bonds, "shape") or len(bonds.shape) != 2:
-            return None
-
-        bond_records: list[Bond] = []
-        n = bonds.shape[0]
-
-        for src_uid in range(n):
-            for tgt_uid in range(bonds.shape[1]):
-                bond_val = float(bonds[src_uid, tgt_uid])
-                if bond_val > 0:  # Only store non-zero bonds
-                    bond_records.append(
-                        Bond(
-                            id=len(bond_records),
-                            source_neuron_uid=src_uid,
-                            target_neuron_uid=tgt_uid,
-                            block_number=self.block_number,
-                            mech_id=0,
-                            bond=bond_val,
-                            created_at=datetime.now(tz=UTC),
+                            **{value_field: value},
                         ),
                     )
 
-        return bond_records if bond_records else None
-
-    def _check_has_weights(self, metagraph: Metagraph, uid: int) -> bool:
-        """Check if any validator has set weights for this neuron."""
-        if not hasattr(metagraph, "weights") or metagraph.weights is None:
-            return False
-
-        weights = metagraph.weights
-        if not hasattr(weights, "shape") or len(weights.shape) != 2:
-            return False
-
-        # Check if any row (validator) has non-zero weight for this uid (column)
-        if uid < weights.shape[1]:
-            return bool(np.any(weights[:, uid] > 0))
-        return False
-
-    @staticmethod
-    def _to_list(tensor) -> list:
-        """Convert tensor/array to Python list safely."""
-        if tensor is None:
-            return []
-        if hasattr(tensor, "tolist"):
-            return tensor.tolist()
-        if hasattr(tensor, "numpy"):
-            return tensor.numpy().tolist()
-        if isinstance(tensor, (list, tuple)):
-            return list(tensor)
-        return []
-
-    @staticmethod
-    def _build_dividends_maps(
-        metagraph: Metagraph,
-    ) -> tuple[dict[str, float], dict[str, float]]:
-        """
-        Build {hotkey: amount} maps for alpha/tao dividends (index 71).
-
-        Returns empty dicts when the metagraph does not expose the lists
-        (e.g. older historical blocks). One hotkey may map to multiple UIDs;
-        all such UIDs receive the same dividend value (the chain pays out
-        per hotkey, not per UID slot).
-        """
-        alpha_pairs = getattr(metagraph, "alpha_dividends_per_hotkey", None) or []
-        tao_pairs = getattr(metagraph, "tao_dividends_per_hotkey", None) or []
-        # If the same hotkey appears twice in a list, last-write-wins (chain shouldn't emit duplicates).
-        alpha_map = {hotkey: float(amount) for hotkey, amount in alpha_pairs}
-        tao_map = {hotkey: float(amount) for hotkey, amount in tao_pairs}
-        return alpha_map, tao_map
-
-    @staticmethod
-    def _read_alpha_out_emission(metagraph: Metagraph) -> float:
-        """Read subnet-wide alpha emission per block (TAO), 0.0 if not exposed."""
-        emissions_obj = getattr(metagraph, "emissions", None)
-        if emissions_obj is None:
-            logger.warning(
-                "metagraph.emissions missing — alpha_out_emission unavailable",
-                netuid=getattr(metagraph, "netuid", None),
-            )
-            return 0.0
-        val = getattr(emissions_obj, "alpha_out_emission", None)
-        if val is None:
-            return 0.0
-        return float(val)
-
-    @staticmethod
-    def _read_moving_price(metagraph: Metagraph) -> float:
-        """Read the alpha->TAO moving price, 0.0 if not exposed."""
-        pool = getattr(metagraph, "pool", None)
-        val = getattr(pool, "moving_price", None) if pool is not None else None
-        return float(val) if val is not None else 0.0
-
-    @staticmethod
-    def _read_tempo(metagraph: Metagraph) -> int:
-        """Read subnet tempo (epoch length in blocks), 0 if not exposed."""
-        val = getattr(metagraph, "tempo", None)
-        if val is None:
-            hparams = getattr(metagraph, "hparams", None)
-            val = getattr(hparams, "tempo", None) if hparams is not None else None
-        return int(val) if val is not None else 0
+        return records or None

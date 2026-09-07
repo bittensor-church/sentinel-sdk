@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from sentinel.v1.providers.base import BlockchainProvider
+from sentinel.v1.providers.metagraph import SubnetMetagraph
 from sentinel.v1.testing.factories import EventDTOFactory, ExtrinsicDTOFactory
 
 
@@ -30,6 +31,7 @@ class FakeBlockchainProvider(BlockchainProvider):
         self.block_timestamps: dict[int, datetime] = {}
         self.subnet_emission_enabled: dict[int, dict[int, bool]] = {}
         self.subnet_netuids: list[int] = []
+        self.metagraphs: dict[tuple[int, int, int], SubnetMetagraph] = {}
 
     def get_block_hash(self, block_number: int) -> str | None:
         return self.block_hashes.get(block_number)
@@ -72,13 +74,20 @@ class FakeBlockchainProvider(BlockchainProvider):
         """Close any open connections."""
         pass
 
-    def get_metagraph(self, netuid: int, block_number: int, mechid: int = 0, *, lite: bool = False) -> Any:
-        """Get metagraph for a given netuid and block number."""
-        return None
+    def get_metagraph(
+        self,
+        netuid: int,
+        block_number: int,
+        mechid: int = 0,
+        *,
+        lite: bool = False,
+    ) -> SubnetMetagraph | None:
+        """Get the configured metagraph, or None to model a subnet missing at that block."""
+        return self.metagraphs.get((netuid, block_number, mechid))
 
     def get_mechanism_count(self, netuid: int, block_number: int | None = None) -> int:
-        """Get the number of mechanisms for a given netuid."""
-        return 0
+        """Get the number of mechanisms configured for a given netuid."""
+        return sum(1 for key in self.metagraphs if key[0] == netuid)
 
     def get_all_subnets_netuids(self, exclude_netuids: list[int] | None = None) -> list[int]:
         """Get the configured subnet netuids."""
@@ -136,6 +145,20 @@ class FakeBlockchainProvider(BlockchainProvider):
     def with_subnet_netuids(self, netuids: list[int]) -> "FakeBlockchainProvider":
         """Set which subnets are registered on the chain."""
         self.subnet_netuids = list(netuids)
+        return self
+
+    def with_metagraph(
+        self,
+        metagraph: SubnetMetagraph,
+        block_number: int,
+    ) -> "FakeBlockchainProvider":
+        """
+        Add a metagraph at a block.
+
+        Its netuid and mechid come from the metagraph itself, so registering one
+        per mechanism is also what makes ``get_mechanism_count`` report them.
+        """
+        self.metagraphs[(metagraph.netuid, block_number, metagraph.mechid)] = metagraph
         return self
 
     @staticmethod
